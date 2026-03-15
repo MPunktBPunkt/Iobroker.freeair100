@@ -1,7 +1,7 @@
 # ioBroker.freeair100
 
-[![NPM version](https://img.shields.io/npm/v/iobroker.freeair100.svg)](https://www.npmjs.com/package/iobroker.freeair100)
 [![License](https://img.shields.io/github/license/MPunktBPunkt/Iobroker.freeair100)](LICENSE)
+[![GitHub release](https://img.shields.io/github/v/release/MPunktBPunkt/Iobroker.freeair100)](https://github.com/MPunktBPunkt/Iobroker.freeair100/releases)
 
 **ioBroker-Adapter für die bluMartin freeAir 100 Lüftungsanlage**
 

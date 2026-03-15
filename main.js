@@ -1,6 +1,6 @@
 'use strict';
 
-const { Adapter } = require('@iobroker/adapter-core');
+const utils = require('@iobroker/adapter-core');
 const https = require('https');
 const http  = require('http');
 const fs    = require('fs');
@@ -69,7 +69,7 @@ const STATE_DEFS = [
 // ─────────────────────────────────────────────────────────────────────────────
 //  ADAPTER CLASS
 // ─────────────────────────────────────────────────────────────────────────────
-class FreeAir100 extends Adapter {
+class FreeAir100 extends utils.Adapter {
   constructor(options = {}) {
     super({ ...options, name: 'freeair100' });
     this.logs       = [];
@@ -945,5 +945,8 @@ class FreeAir100 extends Adapter {
   }
 }
 
-const adapter = new FreeAir100();
-module.exports = adapter;
+if (require.main !== module) {
+    module.exports = (options) => new FreeAir100(options);
+} else {
+    new FreeAir100();
+}
