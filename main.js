@@ -296,7 +296,7 @@ class FreeAir100 extends utils.Adapter {
       if (p === '/api/ping')    return json({ ok:true, ts:Date.now() });
       if (p === '/api/data')    return json(this.lastData);
       if (p === '/api/logs')    return json(this.logs.slice(-300));
-      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.2.0' });
+      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.3.0' });
       if (p === '/api/config')  return json({ filterChangeIntervalH: this.config.filterChangeIntervalH || 8760 });
       if (p === '/api/poll') {
         this._poll().catch(()=>{});
@@ -324,7 +324,7 @@ class FreeAir100 extends utils.Adapter {
   //  HTML BUILDER
   // ─────────────────────────────────────────────────────────────────────────
   buildHtml() {
-    const ver  = this.pack ? this.pack.version : '0.2.0';
+    const ver  = this.pack ? this.pack.version : '0.3.0';
     const sn   = this.config.serialnumber || '---';
     const port = this.config.webPort || 8096;
     const iv   = this.config.pollInterval || 300;

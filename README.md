@@ -152,6 +152,11 @@ Aktueller Workaround: Comfort-Level und Betriebsart direkt über
 
 ## Changelog
 
+### 0.3.0 (2026-03-15)
+- **Bugfix:** `module.exports` auf adapter-core v3.x Factory-Pattern umgestellt (Adapter startete nicht)
+- **Bugfix:** `admin/jsonConfig.json` — `defaultValue` → `default`, ungültige Felder `sm`/`md`/`size` entfernt
+- **Bugfix:** `LICENSE`-Datei hinzugefügt
+
 ### 0.2.0 (2026-03-15)
 - **Neu:** SVG-Strömungsdiagramm (Wärmetauscher mit 4 Luftpfaden, Live-Temperaturen)
 - **Neu:** 3× Bogen-Gauges (CO₂, Wärmerückgewinnung, Luftstrom)

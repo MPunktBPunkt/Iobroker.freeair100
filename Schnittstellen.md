@@ -1,6 +1,6 @@
 # Schnittstellen.md — iobroker.freeair100
 
-> Letzte Aktualisierung: 2026-03-15 | Version: 0.2.0
+> Letzte Aktualisierung: 2026-03-15 | Version: 0.3.0
 
 ---
 
@@ -51,7 +51,7 @@ Key-Bereinigung: strip HTML → split auf `[` oder Leerzeichen → ersten Token.
 | GET     | `/api/logs`    | Logs (max. 300) `[{ts,level,cat,msg}]`          |
 | GET     | `/api/ping`    | Health `{ok:true,ts:…}`                         |
 | GET     | `/api/poll`    | Sofort-Poll triggern                            |
-| GET     | `/api/version` | `{version:"0.2.0"}`                            |
+| GET     | `/api/version` | `{version:"0.3.0"}`                            |
 | GET     | `/api/config`  | `{filterChangeIntervalH:8760}` ← NEU           |
 | POST    | `/api/control` | `{cl,ba}` → Placeholder (Endpunkt TBD)         |
 

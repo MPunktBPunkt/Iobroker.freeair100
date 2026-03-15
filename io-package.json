@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "freeair100",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "news": {
+      "0.3.0": {
+        "en": "Bugfix: adapter-core v3 export pattern, jsonConfig defaultValue->default",
+        "de": "Bugfix: adapter-core v3 Export-Pattern, jsonConfig defaultValue->default, ungueltige Felder entfernt"
+      },
       "0.2.0": {
         "en": "Beautiful dashboard with SVG flow diagram, arc gauges, filter countdown ring",
         "de": "Schönes Dashboard: SVG-Strömungsdiagramm, Bogen-Gauges, Filter-Countdown-Ring"
@@ -21,8 +25,17 @@
       "de": "Liest alle Messwerte des bluMartin freeAir 100 Lüftungsgeräts über freeair-connect.de. Dashboard mit Strömungsdiagramm, Gauges und Filterwechsel-Countdown.",
       "en": "Reads all data from the bluMartin freeAir 100 ventilation unit via freeair-connect.de. Dashboard with flow diagram, gauges and filter change countdown."
     },
-    "authors": ["MPunktBPunkt"],
-    "keywords": ["freeair","freeair100","lueftung","ventilation","blumartin","hvac"],
+    "authors": [
+      "MPunktBPunkt"
+    ],
+    "keywords": [
+      "freeair",
+      "freeair100",
+      "lueftung",
+      "ventilation",
+      "blumartin",
+      "hvac"
+    ],
     "license": "MIT",
     "type": "general",
     "mode": "daemon",
@@ -32,25 +45,33 @@
     "enabled": true,
     "loglevel": "info",
     "readme": "https://github.com/MPunktBPunkt/iobroker.freeair100/blob/main/README.md",
-    "dependencies": [{ "js-controller": ">=5.0.0" }],
+    "dependencies": [
+      {
+        "js-controller": ">=5.0.0"
+      }
+    ],
     "connectionType": "cloud",
     "dataSource": "poll",
-    "adminUI": { "config": "json" }
+    "adminUI": {
+      "config": "json"
+    }
   },
   "native": {
-    "serialnumber":           "",
-    "pollInterval":           300,
-    "webPort":                8096,
-    "filterChangeIntervalH":  8760,
-    "logBuffer":              500,
-    "verbose":                false
+    "serialnumber": "",
+    "pollInterval": 300,
+    "webPort": 8096,
+    "filterChangeIntervalH": 8760,
+    "logBuffer": 500,
+    "verbose": false
   },
   "objects": [],
   "instanceObjects": [
     {
       "_id": "info",
       "type": "channel",
-      "common": { "name": "Adapter-Info" },
+      "common": {
+        "name": "Adapter-Info"
+      },
       "native": {}
     },
     {
@@ -60,7 +81,9 @@
         "name": "Verbunden",
         "type": "boolean",
         "role": "indicator.connected",
-        "read": true, "write": false, "def": false
+        "read": true,
+        "write": false,
+        "def": false
       },
       "native": {}
     }
