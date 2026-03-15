@@ -1,0 +1,70 @@
+{
+  "common": {
+    "name": "freeair100",
+    "version": "0.2.0",
+    "news": {
+      "0.2.0": {
+        "en": "Beautiful dashboard with SVG flow diagram, arc gauges, filter countdown ring",
+        "de": "Schönes Dashboard: SVG-Strömungsdiagramm, Bogen-Gauges, Filter-Countdown-Ring"
+      },
+      "0.1.0": {
+        "en": "Initial release: Cloud scraping, 40+ states, web UI",
+        "de": "Erstveröffentlichung: Cloud-Scraping, 40+ States, Web-UI"
+      }
+    },
+    "title": "freeAir 100",
+    "titleLang": {
+      "de": "freeAir 100 Lüftungsanlage",
+      "en": "freeAir 100 Ventilation"
+    },
+    "desc": {
+      "de": "Liest alle Messwerte des bluMartin freeAir 100 Lüftungsgeräts über freeair-connect.de. Dashboard mit Strömungsdiagramm, Gauges und Filterwechsel-Countdown.",
+      "en": "Reads all data from the bluMartin freeAir 100 ventilation unit via freeair-connect.de. Dashboard with flow diagram, gauges and filter change countdown."
+    },
+    "authors": ["MPunktBPunkt"],
+    "keywords": ["freeair","freeair100","lueftung","ventilation","blumartin","hvac"],
+    "license": "MIT",
+    "type": "general",
+    "mode": "daemon",
+    "platform": "Node.js",
+    "main": "main.js",
+    "icon": "admin/freeair100.svg",
+    "enabled": true,
+    "loglevel": "info",
+    "readme": "https://github.com/MPunktBPunkt/iobroker.freeair100/blob/main/README.md",
+    "dependencies": [{ "js-controller": ">=5.0.0" }],
+    "connectionType": "cloud",
+    "dataSource": "poll",
+    "adminUI": { "config": "json" }
+  },
+  "native": {
+    "serialnumber":           "",
+    "pollInterval":           300,
+    "webPort":                8096,
+    "filterChangeIntervalH":  8760,
+    "logBuffer":              500,
+    "verbose":                false
+  },
+  "objects": [],
+  "instanceObjects": [
+    {
+      "_id": "info",
+      "type": "channel",
+      "common": { "name": "Adapter-Info" },
+      "native": {}
+    },
+    {
+      "_id": "info.connection",
+      "type": "state",
+      "common": {
+        "name": "Verbunden",
+        "type": "boolean",
+        "role": "indicator.connected",
+        "read": true, "write": false, "def": false
+      },
+      "native": {}
+    }
+  ],
+  "protectedNative": [],
+  "encryptedNative": []
+}

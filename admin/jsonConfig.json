@@ -1,0 +1,49 @@
+{
+  "type": "panel",
+  "items": {
+    "_h1": { "type": "header", "text": "freeAir Verbindung", "size": 3, "sm": 12 },
+    "serialnumber": {
+      "type": "text",
+      "label": "Seriennummer (z.B. 20573)",
+      "help": "Seriennummer Ihres freeAir 100 Geräts – steht auf dem Gerät und im freeAir Connect Portal",
+      "sm": 12, "md": 6
+    },
+    "_h2": { "type": "header", "text": "Abfrage", "size": 3, "sm": 12 },
+    "pollInterval": {
+      "type": "number",
+      "label": "Abfrage-Intervall (Sekunden)",
+      "help": "Wie oft freeair-connect.de abgefragt wird. Empfehlung: 300s (5 min)",
+      "min": 30, "max": 3600, "defaultValue": 300,
+      "sm": 12, "md": 6
+    },
+    "_h3": { "type": "header", "text": "Filterwechsel", "size": 3, "sm": 12 },
+    "filterChangeIntervalH": {
+      "type": "number",
+      "label": "Filterwechsel-Intervall (Stunden)",
+      "help": "Nach wie vielen Betriebsstunden der Filter gewechselt werden soll. Standard: 8760h = 1 Jahr. bluMartin empfiehlt 1× jährlich.",
+      "min": 100, "max": 17520, "defaultValue": 8760,
+      "sm": 12, "md": 6
+    },
+    "_h4": { "type": "header", "text": "Web-Interface", "size": 3, "sm": 12 },
+    "webPort": {
+      "type": "number",
+      "label": "Web-UI Port",
+      "help": "Port für das integrierte Dashboard",
+      "min": 1024, "max": 65535, "defaultValue": 8096,
+      "sm": 12, "md": 4
+    },
+    "_h5": { "type": "header", "text": "Erweitert", "size": 3, "sm": 12 },
+    "logBuffer": {
+      "type": "number",
+      "label": "Max. Log-Einträge",
+      "defaultValue": 500, "min": 50, "max": 5000,
+      "sm": 12, "md": 4
+    },
+    "verbose": {
+      "type": "checkbox",
+      "label": "Debug-Logging",
+      "defaultValue": false,
+      "sm": 12, "md": 4
+    }
+  }
+}
