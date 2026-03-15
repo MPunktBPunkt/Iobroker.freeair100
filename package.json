@@ -1,17 +1,26 @@
 {
   "name": "iobroker.freeair100",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "ioBroker adapter for bluMartin freeAir 100 ventilation unit",
   "author": "MPunktBPunkt",
   "license": "MIT",
   "main": "main.js",
-  "engines": { "node": ">=16" },
-  "scripts": { "start": "node main.js" },
+  "engines": {
+    "node": ">=16"
+  },
+  "scripts": {
+    "start": "node main.js"
+  },
   "dependencies": {
     "@iobroker/adapter-core": "^3.0.0"
   },
   "devDependencies": {},
-  "keywords": ["iobroker", "freeair", "ventilation", "hrv"],
+  "keywords": [
+    "iobroker",
+    "freeair",
+    "ventilation",
+    "hrv"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/MPunktBPunkt/iobroker.freeair100"

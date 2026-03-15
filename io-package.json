@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "freeair100",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "news": {
+      "0.3.1": {
+        "en": "Bugfix: jsonConfig header size required, onReady setState timing fix",
+        "de": "Bugfix: jsonConfig header size Pflichtfeld, onReady setState Timing korrigiert"
+      },
       "0.3.0": {
         "en": "Bugfix: adapter-core v3 export pattern, jsonConfig defaultValue->default",
         "de": "Bugfix: adapter-core v3 Export-Pattern, jsonConfig defaultValue->default, ungueltige Felder entfernt"

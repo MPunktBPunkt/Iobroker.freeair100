@@ -152,6 +152,10 @@ Aktueller Workaround: Comfort-Level und Betriebsart direkt über
 
 ## Changelog
 
+### 0.3.1 (2026-03-15)
+- **Bugfix:** jsonConfig `header`-Typ braucht Pflichtfeld `size` — war faelschlich entfernt
+- **Bugfix:** `onReady` — `setState` mit 1,5s Verzoegerung damit Objects-DB sicher bereit ist
+
 ### 0.3.0 (2026-03-15)
 - **Bugfix:** `module.exports` auf adapter-core v3.x Factory-Pattern umgestellt (Adapter startete nicht)
 - **Bugfix:** `admin/jsonConfig.json` — `defaultValue` → `default`, ungültige Felder `sm`/`md`/`size` entfernt

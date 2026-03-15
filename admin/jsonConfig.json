@@ -3,16 +3,18 @@
   "items": {
     "_h1": {
       "type": "header",
-      "text": "freeAir Verbindung"
+      "text": "freeAir Verbindung",
+      "size": 2
     },
     "serialnumber": {
       "type": "text",
       "label": "Seriennummer (z.B. 20573)",
-      "help": "Seriennummer Ihres freeAir 100 Geräts – steht auf dem Gerät und im freeAir Connect Portal"
+      "help": "Seriennummer Ihres freeAir 100 Geraets - steht auf dem Geraet und im freeAir Connect Portal"
     },
     "_h2": {
       "type": "header",
-      "text": "Abfrage"
+      "text": "Abfrage",
+      "size": 2
     },
     "pollInterval": {
       "type": "number",
@@ -24,19 +26,21 @@
     },
     "_h3": {
       "type": "header",
-      "text": "Filterwechsel"
+      "text": "Filterwechsel",
+      "size": 2
     },
     "filterChangeIntervalH": {
       "type": "number",
       "label": "Filterwechsel-Intervall (Stunden)",
-      "help": "Nach wie vielen Betriebsstunden der Filter gewechselt werden soll. Standard: 8760h = 1 Jahr. bluMartin empfiehlt 1x jaehrlich.",
+      "help": "Nach wie vielen Betriebsstunden der Filter gewechselt werden soll. Standard: 8760h = 1 Jahr",
       "min": 100,
       "max": 17520,
       "default": 8760
     },
     "_h4": {
       "type": "header",
-      "text": "Web-Interface"
+      "text": "Web-Interface",
+      "size": 2
     },
     "webPort": {
       "type": "number",
@@ -48,7 +52,8 @@
     },
     "_h5": {
       "type": "header",
-      "text": "Erweitert"
+      "text": "Erweitert",
+      "size": 2
     },
     "logBuffer": {
       "type": "number",

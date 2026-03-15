@@ -84,12 +84,18 @@ class FreeAir100 extends utils.Adapter {
   }
 
   async onReady() {
+    // Set connection false immediately, DB is ready at this point
+    await this.setStateAsync('info.connection', { val: false, ack: true }).catch(() => {});
     await this._initStates();
-    this._startServer();
-    await this._poll();
-    const iv = (this.config.pollInterval || 300) * 1000;
-    if (iv > 0) this.pollTimer = setInterval(() => this._poll(), iv);
     this.subscribeStates('control.*');
+    this._startServer();
+    // Small delay so all objects are written before first poll
+    setTimeout(() => {
+      this._poll().then(() => {
+        const iv = (this.config.pollInterval || 300) * 1000;
+        if (iv > 0) this.pollTimer = setInterval(() => this._poll(), iv);
+      }).catch(() => {});
+    }, 1500);
   }
 
   async onUnload(callback) {
@@ -296,7 +302,7 @@ class FreeAir100 extends utils.Adapter {
       if (p === '/api/ping')    return json({ ok:true, ts:Date.now() });
       if (p === '/api/data')    return json(this.lastData);
       if (p === '/api/logs')    return json(this.logs.slice(-300));
-      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.3.0' });
+      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.3.1' });
       if (p === '/api/config')  return json({ filterChangeIntervalH: this.config.filterChangeIntervalH || 8760 });
       if (p === '/api/poll') {
         this._poll().catch(()=>{});
@@ -324,7 +330,7 @@ class FreeAir100 extends utils.Adapter {
   //  HTML BUILDER
   // ─────────────────────────────────────────────────────────────────────────
   buildHtml() {
-    const ver  = this.pack ? this.pack.version : '0.3.0';
+    const ver  = this.pack ? this.pack.version : '0.3.1';
     const sn   = this.config.serialnumber || '---';
     const port = this.config.webPort || 8096;
     const iv   = this.config.pollInterval || 300;
