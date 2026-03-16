@@ -11,6 +11,11 @@
       "label": "Seriennummer (z.B. 20573)",
       "help": "Seriennummer Ihres freeAir 100 Geraets - steht auf dem Geraet und im freeAir Connect Portal"
     },
+    "password": {
+      "type": "password",
+      "label": "Passwort (freeAir Connect)",
+      "help": "Passwort fuer den Login auf freeair-connect.de. Wird benoetigt um Daten abzurufen."
+    },
     "_h2": {
       "type": "header",
       "text": "Abfrage",
