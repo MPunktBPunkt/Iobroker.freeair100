@@ -152,6 +152,15 @@ Aktueller Workaround: Comfort-Level und Betriebsart direkt über
 
 ## Changelog
 
+### 0.4.0 (2026-03-16)
+- **NEU:** Authentifizierung bei freeair-connect.de mit Passwort (Session-Cookie/PHPSESSID)
+- **NEU:** Passwort-Feld in Adapter-Einstellungen (verschluesselt gespeichert via encryptedNative)
+- **NEU:** Automatischer Login + Retry wenn Login-Seite empfangen wird
+- **NEU:** Echte Geraetesteuerung via POST CL/OM (Comfort-Level + Betriebsart)
+- **NEU:** `sendControl()` Methode mit Session-Cookie
+- **Fix:** `_httpsRequest()` Helper fuer alle HTTPS-Requests mit Cookie-Handling
+- **Fix:** OM-Mapping: cmf=1, slp=2, trb=3, trc=4
+
 ### 0.3.9 (2026-03-16)
 - **Fix:** `JS.join is not a function` — JS-Array hatte bereits `.join()` aufgerufen und war ein String
 - **Fix:** Parse-Fehler gibt jetzt detailliertes Debug-Log aus (HTML-Länge, nav4 vorhanden, alle Keys)
