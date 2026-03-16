@@ -14,11 +14,13 @@ const path  = require('path');
 class FreeAir100 extends utils.Adapter {
   constructor(options = {}) {
     super({ ...options, name: 'freeair100' });
-    this.logs       = [];
-    this.lastData   = {};
-    this.httpServer = null;
-    this.pollTimer  = null;
-    this.pack       = null;
+    this.logs         = [];
+    this.lastData     = {};
+    this.httpServer   = null;
+    this.pollTimer    = null;
+    this.pack         = null;
+    this.sessionCookie = null;   // PHPSESSID from login
+    this.loginPending  = false;
     this._dbg('constructor START - Node.js ' + process.version + '  pid=' + process.pid);
     try {
       this.pack = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
@@ -136,49 +138,238 @@ class FreeAir100 extends utils.Adapter {
   }
 
 
-  // ── Fetch HTML ────────────────────────────────────────────────────────────
-  async fetchHtml() {
-    const sn = (this.config && this.config.serialnumber) || '';
-    const url = 'https://www.freeair-connect.de/?lang=de&serialnumber=' + encodeURIComponent(sn);
-    this._dbg('fetchHtml START: ' + url);
+  // ── HTTP helper ──────────────────────────────────────────────────────────
+  _httpsRequest(opts, body) {
     return new Promise((resolve, reject) => {
-      const req = https.request({
-        hostname: 'www.freeair-connect.de',
-        path: '/?lang=de&serialnumber=' + encodeURIComponent(sn),
-        method: 'GET',
-        headers: {
-          'User-Agent':      'Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0',
-          'Accept':          'text/html,application/xhtml+xml',
-          'Accept-Language': 'de-DE,de;q=0.9',
-          'Accept-Encoding': 'identity'
+      const req = https.request(opts, res => {
+        this._dbg('HTTP ' + opts.method + ' ' + opts.path + ' -> ' + res.statusCode);
+        // Capture Set-Cookie header
+        const setCookie = res.headers['set-cookie'];
+        if (setCookie) {
+          // Extract PHPSESSID
+          for (const c of setCookie) {
+            const m = c.match(/PHPSESSID=([^;]+)/);
+            if (m) {
+              this.sessionCookie = 'PHPSESSID=' + m[1];
+              this._dbg('Session-Cookie gespeichert: ' + this.sessionCookie);
+            }
+          }
         }
-      }, res => {
-        this._dbg('fetchHtml HTTP Status: ' + res.statusCode + '  Content-Type: ' + res.headers['content-type']);
         let data = '';
         res.setEncoding('utf8');
-        res.on('data', c => { data += c; });
-        res.on('end', () => {
-          this._dbg('fetchHtml fertig: ' + data.length + ' Zeichen empfangen');
-          resolve(data);
-        });
+        res.on('data', c => data += c);
+        res.on('end', () => resolve({ status: res.statusCode, body: data, headers: res.headers }));
       });
-      req.setTimeout(20000, () => {
-        this._dbg('fetchHtml TIMEOUT nach 20s');
-        req.destroy();
-        reject(new Error('Timeout 20s'));
-      });
-      req.on('error', (e) => {
-        this._dbg('fetchHtml NETZWERK-FEHLER: ' + e.message + '  code=' + e.code);
-        reject(e);
-      });
+      req.setTimeout(20000, () => { req.destroy(); reject(new Error('Timeout 20s')); });
+      req.on('error', reject);
+      if (body) req.write(body);
       req.end();
-      this._dbg('fetchHtml Request gesendet');
     });
   }
 
+  // ── Login: POST serialnumber + password ───────────────────────────────────
+  async _login() {
+    const sn  = (this.config && this.config.serialnumber) || '';
+    const pw  = (this.config && this.config.password)     || '';
+    if (!pw) {
+      this._dbg('_login: kein Passwort konfiguriert - ueberspringe Login');
+      return false;
+    }
+    this._dbg('_login: POST Login SN=' + sn);
+    const body = 'serialnumber=' + encodeURIComponent(sn) + '&serial_password=' + encodeURIComponent(pw);
+    const res = await this._httpsRequest({
+      hostname: 'www.freeair-connect.de',
+      path: '/?lang=de&serialnumber=' + encodeURIComponent(sn),
+      method: 'POST',
+      headers: {
+        'User-Agent':     'Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0',
+        'Content-Type':   'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(body),
+        'Accept':         'text/html,application/xhtml+xml',
+        'Accept-Language':'de-DE,de;q=0.9',
+      }
+    }, body);
+    if (this.sessionCookie) {
+      this._dbg('_login OK: Cookie=' + this.sessionCookie);
+      this._log('info', 'AUTH', 'Login erfolgreich, Session-Cookie erhalten');
+      return true;
+    }
+    this._dbg('_login: kein Cookie erhalten (Status ' + res.status + ') - Passwort falsch?');
+    this._log('warn', 'AUTH', 'Login fehlgeschlagen - kein Session-Cookie erhalten. Passwort korrekt?');
+    return false;
+  }
+
+  // ── Fetch data via values.php JSON API ──────────────────────────────────
+  // Discovered via DevTools: freeair-connect.de loads data dynamically via
+  // GET /values.php?serialnumber=XXXXX  (76 kB JSON, no login required!)
+  async fetchValues() {
+    const sn = (this.config && this.config.serialnumber) || '';
+    this._dbg('fetchValues START: values.php?serialnumber=' + sn);
+    this._log('info', 'POLL', 'Abrufen values.php SN=' + sn);
+
+    const headers = {
+      'User-Agent':      'Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0',
+      'Accept':          'application/json, text/javascript, */*; q=0.01',
+      'Accept-Language': 'de-DE,de;q=0.9',
+      'Referer':         'https://www.freeair-connect.de/?lang=de&serialnumber=' + encodeURIComponent(sn),
+      'X-Requested-With':'XMLHttpRequest',
+    };
+    if (this.sessionCookie) headers['Cookie'] = this.sessionCookie;
+
+    const res = await this._httpsRequest({
+      hostname: 'www.freeair-connect.de',
+      path:     '/values.php?serialnumber=' + encodeURIComponent(sn),
+      method:   'GET',
+      headers,
+    });
+
+    this._dbg('fetchValues: ' + res.body.length + ' Bytes  status=' + res.status);
+
+    // If we get a short response or error, try login first
+    if (res.status === 403 || (res.body.length < 100 && res.status !== 200)) {
+      this._dbg('fetchValues: Zugriff verweigert (status=' + res.status + ') - versuche Login');
+      if (this.config && this.config.password) {
+        await this._login();
+        if (this.sessionCookie) {
+          headers['Cookie'] = this.sessionCookie;
+          const res2 = await this._httpsRequest({
+            hostname: 'www.freeair-connect.de',
+            path:     '/values.php?serialnumber=' + encodeURIComponent(sn),
+            method:   'GET',
+            headers,
+          });
+          this._dbg('fetchValues Retry: ' + res2.body.length + ' Bytes');
+          return res2.body;
+        }
+      }
+    }
+
+    return res.body;
+  }
+
+  // ── Legacy HTML fetch (fallback only) ────────────────────────────────────
+  async fetchHtml() {
+    const sn = (this.config && this.config.serialnumber) || '';
+    this._dbg('fetchHtml (fallback) SN=' + sn);
+    const headers = {
+      'User-Agent':      'Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0',
+      'Accept':          'text/html,application/xhtml+xml',
+      'Accept-Language': 'de-DE,de;q=0.9',
+    };
+    if (this.sessionCookie) headers['Cookie'] = this.sessionCookie;
+    const res = await this._httpsRequest({
+      hostname: 'www.freeair-connect.de',
+      path:     '/?lang=de&serialnumber=' + encodeURIComponent(sn),
+      method:   'GET',
+      headers,
+    });
+    return res.body;
+  }
+  // ── Control: POST CL + OM to device ──────────────────────────────────────
+  async sendControl(cl, om) {
+    const sn = (this.config && this.config.serialnumber) || '';
+    if (!this.sessionCookie) {
+      this._log('warn', 'CTRL', 'Kein Session-Cookie - bitte zuerst anmelden');
+      return { ok: false, error: 'Nicht angemeldet' };
+    }
+    const body = 'CL=' + encodeURIComponent(cl) + '&OM=' + encodeURIComponent(om);
+    this._dbg('sendControl POST: ' + body);
+    try {
+      const res = await this._httpsRequest({
+        hostname: 'www.freeair-connect.de',
+        path: '/?lang=de&serialnumber=' + encodeURIComponent(sn),
+        method: 'POST',
+        headers: {
+          'User-Agent':      'Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0',
+          'Content-Type':    'application/x-www-form-urlencoded',
+          'Content-Length':  Buffer.byteLength(body),
+          'Cookie':          this.sessionCookie,
+          'Accept':          'text/html,application/xhtml+xml',
+          'Accept-Language': 'de-DE,de;q=0.9',
+        }
+      }, body);
+      this._dbg('sendControl Response: ' + res.status);
+      this._log('info', 'CTRL', 'Steuerbefehl gesendet: CL=' + cl + ' OM=' + om + ' Status=' + res.status);
+      return { ok: true };
+    } catch(e) {
+      this._log('error', 'CTRL', 'Steuerbefehl fehlgeschlagen: ' + e.message);
+      return { ok: false, error: e.message };
+    }
+  }
+
   // ── Parse HTML ────────────────────────────────────────────────────────────
+  // ── Parse JSON from values.php ───────────────────────────────────────────
+  // values.php returns a large JSON object with all device data
+  // Key mapping discovered from nav4 HTML table (same abbreviations)
+  parseValues(jsonStr) {
+    const d = {};
+    let raw;
+    try {
+      raw = JSON.parse(jsonStr);
+      this._dbg('parseValues: JSON OK, keys=' + Object.keys(raw).length);
+    } catch(e) {
+      this._dbg('parseValues: JSON.parse FEHLER: ' + e.message);
+      this._dbg('parseValues: Antwort-Anfang: ' + jsonStr.substring(0, 300));
+      // Fallback: try HTML parsing
+      return this.parseData(jsonStr);
+    }
+
+    // Map JSON fields to our abbreviation scheme
+    // Direct fields (if values.php uses same keys as nav4)
+    const directKeys = ['BA','PRG','EM','SK','CL','RF','VGZ','VGA','LST',
+      'TAB','FAB','TAU','FAU','CO2','TZU','TZB','TFO','LDR','LDI',
+      'WRP','WRW','BST','FST','SNR','RSSI','FS','FRG'];
+    directKeys.forEach(k => {
+      if (raw[k] !== undefined && raw[k] !== null) d[k] = String(raw[k]);
+    });
+
+    // Also try common alternative key names from REST APIs
+    const keyMap = {
+      'airflow':          'LST',  'flowrate':          'LST',
+      'heatRecovery':     'WRP',  'heatRecoveryW':     'WRW',
+      'tempOutdoor':      'TAU',  'tempSupply':        'TZU',
+      'tempExtract':      'TAB',  'tempExhaust':       'TFO',
+      'humOutdoor':       'FAU',  'humExtract':        'FAB',
+      'co2':              'CO2',  'co2ppm':            'CO2',
+      'pressure':         'LDR',  'density':           'LDI',
+      'comfortLevel':     'CL',   'comfort_level':     'CL',
+      'operatingMode':    'BA',   'operating_mode':    'BA',
+      'operatingHours':   'BST',  'filterHours':       'FST',
+      'fanSupply':        'VGZ',  'fanExtract':        'VGA',
+      'rssi':             'RSSI', 'errorStatus':       'FS',
+      'serialNumber':     'SNR',  'serial':            'SNR',
+    };
+    Object.keys(keyMap).forEach(jsonKey => {
+      if (raw[jsonKey] !== undefined && raw[jsonKey] !== null && !d[keyMap[jsonKey]]) {
+        d[keyMap[jsonKey]] = String(raw[jsonKey]);
+      }
+    });
+
+    // Humidity absolute (may be nested)
+    if (raw.FAU_abs !== undefined) d.FAU_abs = raw.FAU_abs;
+    if (raw.FAB_abs !== undefined) d.FAB_abs = raw.FAB_abs;
+    if (raw.humOutdoorAbs !== undefined) d.FAU_abs = raw.humOutdoorAbs;
+    if (raw.humExtractAbs !== undefined) d.FAB_abs = raw.humExtractAbs;
+
+    // Grade values (1-4)
+    if (raw.GRADE_HUM !== undefined)      d.GRADE_HUM      = raw.GRADE_HUM;
+    if (raw.GRADE_CO2 !== undefined)      d.GRADE_CO2      = raw.GRADE_CO2;
+    if (raw.GRADE_FILT_OUT !== undefined) d.GRADE_FILT_OUT = raw.GRADE_FILT_OUT;
+    if (raw.GRADE_FILT_EXT !== undefined) d.GRADE_FILT_EXT = raw.GRADE_FILT_EXT;
+    if (raw.gradeHumidity !== undefined)  d.GRADE_HUM      = raw.gradeHumidity;
+    if (raw.gradeCO2 !== undefined)       d.GRADE_CO2      = raw.gradeCO2;
+
+    // Store raw JSON for dashboard display
+    d._rawJson = raw;
+
+    this._dbg('parseValues: gemappt: LST=' + d.LST + ' TAU=' + d.TAU + ' WRP=' + d.WRP + ' CO2=' + d.CO2 + ' FS=' + d.FS);
+    return d;
+  }
+
+  // ── Legacy HTML parser (fallback) ─────────────────────────────────────────
   parseData(html) {
     const d = {};
+    this._dbg('parseData HTML-Fallback: ' + html.length + ' Bytes');
     const strip = s => s.replace(/<[^>]+>/g, '').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').trim();
     const trRe = /<tr><th[^>]*>([\s\S]*?)<\/th><td[^>]*>[\s\S]*?<\/td><td[^>]*>([\s\S]*?)<\/td><\/tr>/g;
     let m;
@@ -191,8 +382,6 @@ class FreeAir100 extends utils.Adapter {
     const absM = [...html.matchAll(/Feuchtigkeit \(abs\)<\/span>([\d.]+)/g)];
     if (absM[0]) d.FAU_abs = absM[0][1];
     if (absM[1]) d.FAB_abs = absM[1][1];
-    const moistM = html.match(/bm-hum-info-button[^>]*>[\s\S]{0,60}<p class="value">([^<]+)<\/p>/);
-    if (moistM) d.FRG = moistM[1].trim();
     const gradeM = [...html.matchAll(/<div class="grade-item">([\s\S]*?)<\/div>/g)];
     ['GRADE_HUM','GRADE_CO2','GRADE_FILT_OUT','GRADE_FILT_EXT'].forEach((k,i) => {
       if (gradeM[i]) d[k] = (gradeM[i][1].match(/class="active"/g) || []).length;
@@ -272,8 +461,17 @@ class FreeAir100 extends utils.Adapter {
 
   // ── Control (endpoint TBD) ─────────────────────────────────────────────────
   async setParams(cl, ba) {
-    this._log('warn', 'CTRL', 'Steuerungsendpunkt noch nicht implementiert. Bitte Browser-DevTools nutzen (siehe System-Tab).');
-    this._log('info', 'CTRL', 'Gew\u00fcnschte Parameter: CL=' + cl + '  BA=' + ba);
+    // OM numeric mapping: 1=cmf(Comfort), 2=slp(Sleep), 3=trb(Turbo), 4=trc(Turbo Cool)
+    const omMap = { cmf: 1, slp: 2, trb: 3, trc: 4 };
+    // Keep current values if only one is being changed
+    const currentCL = cl !== null ? cl : (this.lastData && this.lastData.CL ? parseInt(this.lastData.CL) : 1);
+    const currentBA = ba !== null ? ba : (this.lastData && this.lastData.BA ? this.lastData.BA : 'cmf');
+    const om = omMap[currentBA] || 1;
+    this._dbg('setParams: CL=' + currentCL + ' BA=' + currentBA + ' OM=' + om);
+    const result = await this.sendControl(currentCL, om);
+    if (!result.ok) {
+      this._log('warn', 'CTRL', 'Steuerung fehlgeschlagen: ' + result.error);
+    }
   }
 
   // ── Poll ──────────────────────────────────────────────────────────────────
@@ -289,35 +487,28 @@ class FreeAir100 extends utils.Adapter {
     try {
       this._log('info', 'POLL', 'Abrufen SN=' + sn);
 
-      this._dbg('_poll Schritt 1: fetchHtml()');
-      const html = await this.fetchHtml();
-      this._dbg('_poll Schritt 1 OK: html.length=' + html.length);
+      this._dbg('_poll Schritt 1: fetchValues() JSON-API');
+      const jsonStr = await this.fetchValues();
+      this._dbg('_poll Schritt 1 OK: ' + jsonStr.length + ' Bytes');
 
-      if (!html || html.length < 1000) {
-        this._dbg('_poll Schritt 1 FEHLER: Antwort zu kurz (' + (html?html.length:0) + ')');
-        this._dbg('_poll HTML-Anfang: ' + (html ? html.substring(0,200) : 'null'));
-        throw new Error('Ungueltige Antwort (len=' + (html?html.length:0) + ')');
+      if (!jsonStr || jsonStr.length < 10) {
+        this._dbg('_poll FEHLER: Antwort zu kurz (' + (jsonStr?jsonStr.length:0) + ')');
+        this._dbg('_poll Antwort-Anfang: ' + (jsonStr ? jsonStr.substring(0,200) : 'null'));
+        throw new Error('Ungueltige Antwort von values.php (len=' + (jsonStr?jsonStr.length:0) + ')');
       }
-      if (!html.includes(sn)) {
-        this._dbg('_poll Schritt 1 FEHLER: SN ' + sn + ' nicht in Antwort gefunden');
-        this._dbg('_poll HTML-Anfang: ' + html.substring(0,300));
-        throw new Error('SN ' + sn + ' nicht in Antwort');
-      }
-      this._dbg('_poll Schritt 1: SN in HTML gefunden');
 
-      this._dbg('_poll Schritt 2: parseData()');
-      const data = this.parseData(html);
-      const parsedKeys = Object.keys(data);
-      this._dbg('_poll Schritt 2 OK: ' + parsedKeys.length + ' Keys geparst: ' + parsedKeys.join(', '));
-      this._dbg('_poll Schluessel-Werte: LST=' + data.LST + '  TAU=' + data.TAU + '  TAB=' + data.TAB + '  WRP=' + data.WRP + '  CO2=' + data.CO2 + '  FST=' + data.FST + '  FS=' + data.FS);
+      this._dbg('_poll Schritt 2: parseValues()');
+      const data = this.parseValues(jsonStr);
+      const parsedKeys = Object.keys(data).filter(k => k !== '_rawJson');
+      this._dbg('_poll Schritt 2 OK: ' + parsedKeys.length + ' Keys: ' + parsedKeys.slice(0,10).join(', '));
+      this._dbg('_poll Werte: LST=' + data.LST + ' TAU=' + data.TAU + ' TAB=' + data.TAB + ' WRP=' + data.WRP + ' CO2=' + data.CO2 + ' FS=' + data.FS);
 
-      const parsedCount = Object.keys(data).length;
+
+      const parsedCount = Object.keys(data).filter(k => k !== '_rawJson').length;
       if (parsedCount === 0 || (!data.LST && !data.TAU && !data.WRP && !data.CO2 && !data.CL)) {
         this._dbg('_poll FEHLER: ' + parsedCount + ' Keys geparst, keine Kerndaten');
-        this._dbg('_poll HTML-Laenge: ' + html.length + '  HTML-Anfang (300): ' + html.substring(0,300).replace(/\n/g,' '));
-        this._dbg('_poll HTML-nav4-vorhanden: ' + html.includes('id="nav4"'));
-        this._dbg('_poll HTML-SN-vorhanden: ' + html.includes(sn));
-        this._dbg('_poll Alle Keys: ' + JSON.stringify(data));
+        this._dbg('_poll Antwort-Anfang: ' + jsonStr.substring(0,300));
+        this._dbg('_poll Alle Keys: ' + JSON.stringify(Object.keys(data)));
         this._log('warn', 'POLL', 'Parsing: ' + parsedCount + ' Keys, keine Kerndaten (LST/TAU/WRP leer). Geraet offline oder HTML-Struktur geaendert?');
         // Dont throw - keep trying on next interval
         await this.setStateAsync('info.connection', { val:false, ack:true }).catch(()=>{});
@@ -374,7 +565,7 @@ class FreeAir100 extends utils.Adapter {
         return json(this.lastData);
       }
       if (p === '/api/logs')    return json(this.logs.slice(-150));
-      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.3.9' });
+      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.4.2' });
       if (p === '/api/config') {
         const cfg = { filterChangeIntervalH: this.config.filterChangeIntervalH || 8760 };
         this._dbg('HTTP /api/config: ' + JSON.stringify(cfg));
@@ -393,8 +584,9 @@ class FreeAir100 extends utils.Adapter {
           try {
             const { cl, ba } = JSON.parse(body);
             this._dbg('HTTP /api/control: cl=' + cl + '  ba=' + ba);
-            this.setParams(cl!=null ? parseInt(cl) : null, ba||null);
-            json({ ok:true, msg:'Protokolliert (Endpunkt TBD)' });
+            this.setParams(cl!=null ? parseInt(cl) : null, ba||null)
+              .then(()=>{}).catch(()=>{});
+            json({ ok:true, msg:'Steuerbefehl gesendet' });
           } catch(e) {
             this._dbg('HTTP /api/control FEHLER: ' + e.message);
             json({ ok:false, msg:e.message }, 400);
@@ -424,7 +616,7 @@ class FreeAir100 extends utils.Adapter {
   //  HTML BUILDER
   // ─────────────────────────────────────────────────────────────────────────
   buildHtml() {
-    const ver  = this.pack ? this.pack.version : '0.3.9';
+    const ver  = this.pack ? this.pack.version : '0.4.2';
     const sn   = (this.config && this.config.serialnumber) || '---';
     const port = (this.config && this.config.webPort) || 8096;
     const iv   = (this.config && this.config.pollInterval) || 300;

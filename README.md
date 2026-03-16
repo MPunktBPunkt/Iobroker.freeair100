@@ -152,6 +152,17 @@ Aktueller Workaround: Comfort-Level und Betriebsart direkt über
 
 ## Changelog
 
+### 0.4.2 (2026-03-16)
+- **Root-Fix:** Daten werden jetzt direkt von `values.php?serialnumber=XXXXX` als JSON abgerufen
+- Entdeckt per Browser DevTools: freeair-connect.de laedt Daten via AJAX, nicht im HTML
+- `parseValues()` mit flexiblem Key-Mapping (direkte + alternative Feldnamen)
+- `fetchHtml()` + `parseData()` nur noch als Fallback erhalten
+
+### 0.4.1 (2026-03-16)
+- **Fix:** Auth-Erkennung: `id="nav4"` ist in allen Responses vorhanden — pruefte deshalb nie auf Login
+- Korrekte Erkennung: `<th>BA</th>` fehlt bei unauthentifizierter Seite
+- `[AUTH]`-Logs jetzt sichtbar: zeigt ob Session-Cookie vorhanden
+
 ### 0.4.0 (2026-03-16)
 - **NEU:** Authentifizierung bei freeair-connect.de mit Passwort (Session-Cookie/PHPSESSID)
 - **NEU:** Passwort-Feld in Adapter-Einstellungen (verschluesselt gespeichert via encryptedNative)

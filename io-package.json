@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "freeair100",
-    "version": "0.4.1",
+    "version": "0.4.2",
     "news": {
+      "0.4.2": {
+        "en": "Root fix: data loaded from values.php JSON API (not HTML parsing). Discovered via DevTools XHR.",
+        "de": "Root-Fix: Daten direkt von values.php JSON-API (kein HTML-Parsing mehr). Entdeckt via DevTools XHR."
+      },
       "0.4.1": {
         "en": "Fix: auth detection checked for id=nav4 which exists in all responses - now checks for actual data rows (<th>BA</th>)",
         "de": "Fix: Auth-Erkennung pruefte auf id=nav4 (in ALLEN Responses vorhanden) - jetzt Pruefung auf echte Datensaetze (<th>BA</th>)"
