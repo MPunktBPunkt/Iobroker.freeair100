@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "freeair100",
-    "version": "0.3.6",
+    "version": "0.3.7",
     "news": {
+      "0.3.7": {
+        "en": "Robustness: module.parent export, EADDRINUSE error message, this.config null guards everywhere",
+        "de": "Stabilitaet: module.parent Export, EADDRINUSE Fehlermeldung, this.config null-Guards ueberall"
+      },
       "0.3.6": {
         "en": "JS browser fixes: JS.join, tabs.indexOf null-safe, fetch catch, timer guard, logs limit 150",
         "de": "Browser-JS Fixes: JS.join statt Array+String, tabs.indexOf null-sicher, fetch catch, Timer-Guard, Logs-Limit 150"
