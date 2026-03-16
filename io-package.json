@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "freeair100",
-    "version": "0.3.1",
+    "version": "0.3.2",
     "news": {
+      "0.3.2": {
+        "en": "DEBUG version: 91 debug log points in all methods for diagnostics",
+        "de": "DEBUG-Version: 91 Debug-Logpunkte in allen Methoden zur Fehlerdiagnose"
+      },
       "0.3.1": {
         "en": "Bugfix: jsonConfig header size required, onReady setState timing fix",
         "de": "Bugfix: jsonConfig header size Pflichtfeld, onReady setState Timing korrigiert"

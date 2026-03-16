@@ -77,43 +77,113 @@ class FreeAir100 extends utils.Adapter {
     this.httpServer = null;
     this.pollTimer  = null;
     this.pack       = null;
-    try { this.pack = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8')); } catch(e){}
+    this._dbg('constructor START - Node.js ' + process.version + '  pid=' + process.pid);
+    try {
+      this.pack = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+      this._dbg('constructor package.json geladen: v' + this.pack.version);
+    } catch(e) {
+      this._dbg('constructor package.json FEHLER: ' + e.message);
+    }
+    this._dbg('constructor config keys: ' + JSON.stringify(Object.keys(this.config || {})));
+    this._dbg('constructor serialnumber=' + (this.config && this.config.serialnumber ? this.config.serialnumber : 'LEER'));
+    this._dbg('constructor webPort=' + (this.config && this.config.webPort ? this.config.webPort : '(default 8096)'));
+    this._dbg('constructor pollInterval=' + (this.config && this.config.pollInterval ? this.config.pollInterval : '(default 300)'));
     this.on('ready',       this.onReady.bind(this));
     this.on('stateChange', this.onStateChange.bind(this));
     this.on('unload',      this.onUnload.bind(this));
+    this._dbg('constructor DONE - event handlers registriert');
   }
 
   async onReady() {
-    // Set connection false immediately, DB is ready at this point
-    await this.setStateAsync('info.connection', { val: false, ack: true }).catch(() => {});
-    await this._initStates();
+    this._dbg('onReady START');
+    this._dbg('onReady config dump: ' + JSON.stringify(this.config));
+    this._dbg('onReady namespace: ' + this.namespace);
+
+    this._dbg('onReady Schritt 1: setStateAsync info.connection=false');
+    try {
+      await this.setStateAsync('info.connection', { val: false, ack: true });
+      this._dbg('onReady Schritt 1: OK');
+    } catch(e) {
+      this._dbg('onReady Schritt 1: FEHLER - ' + e.message);
+    }
+
+    this._dbg('onReady Schritt 2: _initStates() startet (' + STATE_DEFS.length + ' States)');
+    try {
+      await this._initStates();
+      this._dbg('onReady Schritt 2: _initStates() OK');
+    } catch(e) {
+      this._dbg('onReady Schritt 2: _initStates() FEHLER - ' + e.message + ' ' + e.stack);
+    }
+
+    this._dbg('onReady Schritt 3: subscribeStates control.*');
     this.subscribeStates('control.*');
-    this._startServer();
-    // Small delay so all objects are written before first poll
+    this._dbg('onReady Schritt 3: OK');
+
+    this._dbg('onReady Schritt 4: _startServer() Port=' + (this.config.webPort || 8096));
+    try {
+      this._startServer();
+      this._dbg('onReady Schritt 4: _startServer() aufgerufen');
+    } catch(e) {
+      this._dbg('onReady Schritt 4: _startServer() FEHLER - ' + e.message);
+    }
+
+    this._dbg('onReady Schritt 5: warte 1500ms vor erstem Poll');
     setTimeout(() => {
+      this._dbg('onReady Schritt 5: Timeout abgelaufen, starte _poll()');
       this._poll().then(() => {
+        this._dbg('onReady Schritt 5: erster Poll OK, starte Intervall');
         const iv = (this.config.pollInterval || 300) * 1000;
-        if (iv > 0) this.pollTimer = setInterval(() => this._poll(), iv);
-      }).catch(() => {});
+        this._dbg('onReady Schritt 6: pollInterval=' + iv + 'ms');
+        if (iv > 0) {
+          this.pollTimer = setInterval(() => this._poll(), iv);
+          this._dbg('onReady Schritt 6: setInterval gestartet');
+        }
+      }).catch((e) => {
+        this._dbg('onReady Schritt 5: erster Poll FEHLER - ' + e.message);
+      });
     }, 1500);
+
+    this._dbg('onReady DONE (Poll laeuft asynchron)');
   }
 
   async onUnload(callback) {
-    try { if (this.pollTimer) clearInterval(this.pollTimer); } catch(e){}
-    try { if (this.httpServer) this.httpServer.close(); } catch(e){}
+    this._dbg('onUnload aufgerufen');
+    try {
+      if (this.pollTimer) { clearInterval(this.pollTimer); this._dbg('onUnload pollTimer gestoppt'); }
+    } catch(e) { this._dbg('onUnload pollTimer FEHLER: ' + e.message); }
+    try {
+      if (this.httpServer) { this.httpServer.close(); this._dbg('onUnload httpServer geschlossen'); }
+    } catch(e) { this._dbg('onUnload httpServer FEHLER: ' + e.message); }
+    this._dbg('onUnload DONE');
     callback();
   }
 
   onStateChange(id, state) {
-    if (!state || state.ack) return;
+    this._dbg('onStateChange: id=' + id + '  val=' + (state ? state.val : 'null') + '  ack=' + (state ? state.ack : '?'));
+    if (!state || state.ack) {
+      this._dbg('onStateChange: ignoriert (ack=true oder null)');
+      return;
+    }
     const shortId = id.split('.').slice(2).join('.');
+    this._dbg('onStateChange: shortId=' + shortId);
     if (shortId === 'control.comfortLevel') {
       this._log('info', 'CTRL', 'Setze Comfort-Level: ' + state.val);
       this.setParams(parseInt(state.val), null);
     } else if (shortId === 'control.operatingMode') {
       this._log('info', 'CTRL', 'Setze Betriebsart: ' + state.val);
       this.setParams(null, String(state.val));
+    } else {
+      this._dbg('onStateChange: unbekannte State-ID ' + shortId);
     }
+  }
+
+  // Debug helper: always logs to ioBroker log regardless of verbose setting
+  _dbg(msg) {
+    const ts = new Date().toISOString().substring(11, 23);
+    const line = '[DEBUG][SYSTEM] ' + msg;
+    try { if (this.log) this.log.debug(line); else console.log(ts + ' ' + line); } catch(e) { console.log(ts + ' ' + line); }
+    this.logs.push({ ts: Date.now(), level: 'debug', cat: 'SYSTEM', msg: String(msg) });
+    if (this.logs.length > (this.config && this.config.logBuffer ? this.config.logBuffer : 500)) this.logs.shift();
   }
 
   _log(level, cat, msg) {
@@ -124,24 +194,43 @@ class FreeAir100 extends utils.Adapter {
   }
 
   async _initStates() {
+    this._dbg('_initStates START: ' + STATE_DEFS.length + ' States werden angelegt');
+    let okCount = 0, errCount = 0;
     for (const s of STATE_DEFS) {
-      await this.extendObjectAsync(s.id, {
-        type: 'state',
-        common: { name:s.name, type:s.type, role:s.role||'value', unit:s.unit, read:true, write:!!s.write, def:s.def },
-        native: {}
-      }).catch(() => {});
+      try {
+        await this.extendObjectAsync(s.id, {
+          type: 'state',
+          common: { name:s.name, type:s.type, role:s.role||'value', unit:s.unit, read:true, write:!!s.write, def:s.def },
+          native: {}
+        });
+        okCount++;
+      } catch(e) {
+        errCount++;
+        this._dbg('_initStates FEHLER bei ' + s.id + ': ' + e.message);
+      }
     }
-    // Set configured interval on startup
+    this._dbg('_initStates extendObjectAsync: ' + okCount + ' OK, ' + errCount + ' Fehler');
+
     const cfgInterval = this.config.filterChangeIntervalH || 8760;
-    await this.setStateAsync('filter.changeIntervalH', { val: cfgInterval, ack: true }).catch(() => {});
+    this._dbg('_initStates setStateAsync filter.changeIntervalH=' + cfgInterval);
+    try {
+      await this.setStateAsync('filter.changeIntervalH', { val: cfgInterval, ack: true });
+      this._dbg('_initStates filter.changeIntervalH gesetzt: OK');
+    } catch(e) {
+      this._dbg('_initStates filter.changeIntervalH FEHLER: ' + e.message);
+    }
+    this._dbg('_initStates DONE');
   }
 
   // ── Fetch HTML ────────────────────────────────────────────────────────────
   async fetchHtml() {
+    const sn = this.config.serialnumber || '';
+    const url = 'https://www.freeair-connect.de/?lang=de&serialnumber=' + encodeURIComponent(sn);
+    this._dbg('fetchHtml START: ' + url);
     return new Promise((resolve, reject) => {
       const req = https.request({
         hostname: 'www.freeair-connect.de',
-        path: '/?lang=de&serialnumber=' + encodeURIComponent(this.config.serialnumber || ''),
+        path: '/?lang=de&serialnumber=' + encodeURIComponent(sn),
         method: 'GET',
         headers: {
           'User-Agent':      'Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0',
@@ -150,14 +239,26 @@ class FreeAir100 extends utils.Adapter {
           'Accept-Encoding': 'identity'
         }
       }, res => {
+        this._dbg('fetchHtml HTTP Status: ' + res.statusCode + '  Content-Type: ' + res.headers['content-type']);
         let data = '';
         res.setEncoding('utf8');
-        res.on('data', c => data += c);
-        res.on('end', () => resolve(data));
+        res.on('data', c => { data += c; });
+        res.on('end', () => {
+          this._dbg('fetchHtml fertig: ' + data.length + ' Zeichen empfangen');
+          resolve(data);
+        });
       });
-      req.setTimeout(20000, () => { req.destroy(); reject(new Error('Timeout 20s')); });
-      req.on('error', reject);
+      req.setTimeout(20000, () => {
+        this._dbg('fetchHtml TIMEOUT nach 20s');
+        req.destroy();
+        reject(new Error('Timeout 20s'));
+      });
+      req.on('error', (e) => {
+        this._dbg('fetchHtml NETZWERK-FEHLER: ' + e.message + '  code=' + e.code);
+        reject(e);
+      });
       req.end();
+      this._dbg('fetchHtml Request gesendet');
     });
   }
 
@@ -264,24 +365,58 @@ class FreeAir100 extends utils.Adapter {
   // ── Poll ──────────────────────────────────────────────────────────────────
   async _poll() {
     const sn = this.config.serialnumber;
+    this._dbg('_poll START sn=' + sn + '  lastData keys=' + Object.keys(this.lastData).length);
     if (!sn) {
+      this._dbg('_poll ABBRUCH: keine Seriennummer');
       this._log('warn', 'POLL', 'Keine Seriennummer konfiguriert');
       await this.setStateAsync('info.connection', { val:false, ack:true }).catch(()=>{});
       return;
     }
     try {
       this._log('info', 'POLL', 'Abrufen SN=' + sn);
+
+      this._dbg('_poll Schritt 1: fetchHtml()');
       const html = await this.fetchHtml();
-      if (!html || html.length < 1000) throw new Error('Ungueltige Antwort (len=' + (html?html.length:0) + ')');
-      if (!html.includes(sn)) throw new Error('SN ' + sn + ' nicht in Antwort');
+      this._dbg('_poll Schritt 1 OK: html.length=' + html.length);
+
+      if (!html || html.length < 1000) {
+        this._dbg('_poll Schritt 1 FEHLER: Antwort zu kurz (' + (html?html.length:0) + ')');
+        this._dbg('_poll HTML-Anfang: ' + (html ? html.substring(0,200) : 'null'));
+        throw new Error('Ungueltige Antwort (len=' + (html?html.length:0) + ')');
+      }
+      if (!html.includes(sn)) {
+        this._dbg('_poll Schritt 1 FEHLER: SN ' + sn + ' nicht in Antwort gefunden');
+        this._dbg('_poll HTML-Anfang: ' + html.substring(0,300));
+        throw new Error('SN ' + sn + ' nicht in Antwort');
+      }
+      this._dbg('_poll Schritt 1: SN in HTML gefunden');
+
+      this._dbg('_poll Schritt 2: parseData()');
       const data = this.parseData(html);
-      if (!data.LST && !data.TAU && !data.WRP) throw new Error('Keine Messwerte geparst');
+      const parsedKeys = Object.keys(data);
+      this._dbg('_poll Schritt 2 OK: ' + parsedKeys.length + ' Keys geparst: ' + parsedKeys.join(', '));
+      this._dbg('_poll Schluessel-Werte: LST=' + data.LST + '  TAU=' + data.TAU + '  TAB=' + data.TAB + '  WRP=' + data.WRP + '  CO2=' + data.CO2 + '  FST=' + data.FST + '  FS=' + data.FS);
+
+      if (!data.LST && !data.TAU && !data.WRP) {
+        this._dbg('_poll Schritt 2 FEHLER: keine Kerndaten (LST/TAU/WRP alle leer)');
+        this._dbg('_poll alle geparsten Daten: ' + JSON.stringify(data));
+        throw new Error('Keine Messwerte geparst');
+      }
+
+      this._dbg('_poll Schritt 3: _updateStates()');
       this.lastData = { ...data, _ts: Date.now() };
       await this._updateStates(data);
-      await this.setStateAsync('info.connection', { val:true,  ack:true }).catch(()=>{});
-      await this.setStateAsync('info.lastPoll',   { val:new Date().toISOString(), ack:true }).catch(()=>{});
+      this._dbg('_poll Schritt 3 OK');
+
+      this._dbg('_poll Schritt 4: info.connection=true + lastPoll setzen');
+      await this.setStateAsync('info.connection', { val:true,  ack:true }).catch((e) => { this._dbg('info.connection FEHLER: ' + e.message); });
+      await this.setStateAsync('info.lastPoll',   { val:new Date().toISOString(), ack:true }).catch((e) => { this._dbg('info.lastPoll FEHLER: ' + e.message); });
+      this._dbg('_poll Schritt 4 OK');
+
       this._log('info', 'POLL', 'OK  LST=' + data.LST + ' m3/h  TAB=' + data.TAB + '\u00b0C  TAU=' + data.TAU + '\u00b0C  CO2=' + data.CO2 + ' ppm  WRP=' + data.WRP + '%  FST=' + data.FST + 'h');
+      this._dbg('_poll DONE');
     } catch(e) {
+      this._dbg('_poll FEHLER: ' + e.message);
       this._log('error', 'POLL', 'Fehler: ' + e.message);
       await this.setStateAsync('info.connection', { val:false, ack:true }).catch(()=>{});
     }
@@ -290,47 +425,79 @@ class FreeAir100 extends utils.Adapter {
   // ── HTTP server ────────────────────────────────────────────────────────────
   _startServer() {
     const port = this.config.webPort || 8096;
+    this._dbg('_startServer: erstelle HTTP-Server auf Port ' + port);
     this.httpServer = http.createServer((req, res) => {
       const p = new URL(req.url||'/', 'http://x').pathname;
+      const ip = req.socket.remoteAddress || '?';
+      this._dbg('HTTP ' + req.method + ' ' + p + '  von ' + ip);
       res.setHeader('Access-Control-Allow-Origin', '*');
-      if (req.method === 'OPTIONS') { res.writeHead(200); return res.end(); }
-      const json = (obj, code=200) => { res.writeHead(code, {'Content-Type':'application/json'}); res.end(JSON.stringify(obj)); };
+      if (req.method === 'OPTIONS') {
+        this._dbg('HTTP OPTIONS preflight -> 200');
+        res.writeHead(200); return res.end();
+      }
+      const json = (obj, code=200) => {
+        this._dbg('HTTP -> ' + code + ' JSON ' + p + ' (' + JSON.stringify(obj).length + ' Bytes)');
+        res.writeHead(code, {'Content-Type':'application/json'});
+        res.end(JSON.stringify(obj));
+      };
       if (p === '/' || p === '/index.html') {
+        this._dbg('HTTP Dashboard-Seite wird gesendet');
         res.writeHead(200, {'Content-Type':'text/html; charset=utf-8'});
         return res.end(this.buildHtml());
       }
       if (p === '/api/ping')    return json({ ok:true, ts:Date.now() });
-      if (p === '/api/data')    return json(this.lastData);
+      if (p === '/api/data') {
+        this._dbg('HTTP /api/data lastData-Keys: ' + Object.keys(this.lastData).length);
+        return json(this.lastData);
+      }
       if (p === '/api/logs')    return json(this.logs.slice(-300));
-      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.3.1' });
-      if (p === '/api/config')  return json({ filterChangeIntervalH: this.config.filterChangeIntervalH || 8760 });
+      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.3.2' });
+      if (p === '/api/config') {
+        const cfg = { filterChangeIntervalH: this.config.filterChangeIntervalH || 8760 };
+        this._dbg('HTTP /api/config: ' + JSON.stringify(cfg));
+        return json(cfg);
+      }
       if (p === '/api/poll') {
-        this._poll().catch(()=>{});
+        this._dbg('HTTP /api/poll: manueller Poll angefordert');
+        this._poll().catch((e) => { this._dbg('HTTP /api/poll Poll-Fehler: ' + e.message); });
         return json({ ok:true });
       }
       if (p === '/api/control' && req.method === 'POST') {
         let body = '';
         req.on('data', c => body += c);
         req.on('end', () => {
+          this._dbg('HTTP /api/control Body: ' + body);
           try {
             const { cl, ba } = JSON.parse(body);
+            this._dbg('HTTP /api/control: cl=' + cl + '  ba=' + ba);
             this.setParams(cl!=null ? parseInt(cl) : null, ba||null);
             json({ ok:true, msg:'Protokolliert (Endpunkt TBD)' });
-          } catch(e) { json({ ok:false, msg:e.message }, 400); }
+          } catch(e) {
+            this._dbg('HTTP /api/control FEHLER: ' + e.message);
+            json({ ok:false, msg:e.message }, 400);
+          }
         });
         return;
       }
+      this._dbg('HTTP 404: ' + p);
       res.writeHead(404, {'Content-Type':'text/plain'}); res.end('Not found');
     });
-    this.httpServer.listen(port, '0.0.0.0', () => this._log('info','HTTP','Web-UI Port ' + port));
-    this.httpServer.on('error', e => this._log('error','HTTP', e.message));
+    this.httpServer.listen(port, '0.0.0.0', () => {
+      this._dbg('_startServer: HTTP-Server lauscht auf 0.0.0.0:' + port);
+      this._log('info','HTTP','Web-UI Port ' + port);
+    });
+    this.httpServer.on('error', (e) => {
+      this._dbg('_startServer FEHLER: ' + e.message + '  code=' + e.code);
+      this._log('error','HTTP', e.message);
+    });
+    this._dbg('_startServer: server.listen() aufgerufen');
   }
 
   // ─────────────────────────────────────────────────────────────────────────
   //  HTML BUILDER
   // ─────────────────────────────────────────────────────────────────────────
   buildHtml() {
-    const ver  = this.pack ? this.pack.version : '0.3.1';
+    const ver  = this.pack ? this.pack.version : '0.3.2';
     const sn   = this.config.serialnumber || '---';
     const port = this.config.webPort || 8096;
     const iv   = this.config.pollInterval || 300;
