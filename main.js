@@ -200,31 +200,23 @@ class FreeAir100 extends utils.Adapter {
   }
 
   async _initStates() {
-    this._dbg('_initStates START: ' + STATE_DEFS.length + ' States werden angelegt');
-    let okCount = 0, errCount = 0;
-    for (const s of STATE_DEFS) {
-      try {
-        await this.extendObjectAsync(s.id, {
-          type: 'state',
-          common: { name:s.name, type:s.type, role:s.role||'value', unit:s.unit, read:true, write:!!s.write, def:s.def },
-          native: {}
-        });
-        okCount++;
-      } catch(e) {
-        errCount++;
-        this._dbg('_initStates FEHLER bei ' + s.id + ': ' + e.message);
-      }
-    }
-    this._dbg('_initStates extendObjectAsync: ' + okCount + ' OK, ' + errCount + ' Fehler');
+    this._dbg('_initStates START: ' + STATE_DEFS.length + ' States PARALLEL anlegen');
+    const t0 = Date.now();
 
-    const cfgInterval = this.config.filterChangeIntervalH || 8760;
-    this._dbg('_initStates setState filter.changeIntervalH=' + cfgInterval + ' (fire-and-forget)');
-    // fire-and-forget: DB koennte noch nicht bereit sein
-    this.setState('filter.changeIntervalH', { val: cfgInterval, ack: true }, (err) => {
-      if (err) this._dbg('_initStates filter.changeIntervalH Callback-Fehler: ' + err);
-      else this._dbg('_initStates filter.changeIntervalH gesetzt: OK');
-    });
-    this._dbg('_initStates DONE');
+    // Alle Objects PARALLEL anlegen - KEIN serielles await in Schleife!
+    const promises = STATE_DEFS.map(s =>
+      this.extendObjectAsync(s.id, {
+        type: 'state',
+        common: { name:s.name, type:s.type, role:s.role||'value', unit:s.unit, read:true, write:!!s.write, def:s.def },
+        native: {}
+      }).catch(e => {
+        this._dbg('_initStates FEHLER bei ' + s.id + ': ' + e.message);
+      })
+    );
+
+    await Promise.all(promises);
+    this._dbg('_initStates DONE in ' + (Date.now()-t0) + 'ms');
+    // setState wird NICHT hier gemacht - erst nach DB-ready im Poll-Timeout
   }
 
   // ── Fetch HTML ────────────────────────────────────────────────────────────
@@ -457,8 +449,8 @@ class FreeAir100 extends utils.Adapter {
         this._dbg('HTTP /api/data lastData-Keys: ' + Object.keys(this.lastData).length);
         return json(this.lastData);
       }
-      if (p === '/api/logs')    return json(this.logs.slice(-300));
-      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.3.4' });
+      if (p === '/api/logs')    return json(this.logs.slice(-150));
+      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.3.6' });
       if (p === '/api/config') {
         const cfg = { filterChangeIntervalH: this.config.filterChangeIntervalH || 8760 };
         this._dbg('HTTP /api/config: ' + JSON.stringify(cfg));
@@ -504,7 +496,7 @@ class FreeAir100 extends utils.Adapter {
   //  HTML BUILDER
   // ─────────────────────────────────────────────────────────────────────────
   buildHtml() {
-    const ver  = this.pack ? this.pack.version : '0.3.4';
+    const ver  = this.pack ? this.pack.version : '0.3.6';
     const sn   = this.config.serialnumber || '---';
     const port = this.config.webPort || 8096;
     const iv   = this.config.pollInterval || 300;
@@ -842,8 +834,8 @@ class FreeAir100 extends utils.Adapter {
       '  document.querySelectorAll(".tb").forEach(function(b){b.classList.remove("act");});',
       '  document.querySelectorAll(".tp").forEach(function(p){p.classList.remove("act");});',
       '  var tabs=["daten","logs","system"];',
-      '  document.querySelectorAll(".tb")[tabs.indexOf(name)].classList.add("act");',
-      '  document.getElementById("pane-"+name).classList.add("act");',
+      '  var idx=tabs.indexOf(name);if(idx>=0)document.querySelectorAll(".tb")[idx].classList.add("act");',
+      '  var pane=document.getElementById("pane-"+name);if(pane)pane.classList.add("act");',
       '  curTab=name;',
       '  if(name==="logs")fetchLogs();',
       '  if(name==="system")fetchSys();',
@@ -1028,7 +1020,7 @@ class FreeAir100 extends utils.Adapter {
       'function fetchData(){',
       '  fetch("/api/data").then(function(r){return r.json();}).then(function(d){',
       '    if(curTab==="daten")renderDaten(d);',
-      '  }).catch(function(){});',
+      '  }).catch(function(e){console.warn("fetchData Fehler:",e);});',
       '}',
       'function fetchSys(){',
       '  fetch("/api/data").then(function(r){return r.json();}).then(function(d){renderSys(d);}).catch(function(){});',
@@ -1068,7 +1060,7 @@ class FreeAir100 extends utils.Adapter {
       // ── Init ──
       'fetch("/api/config").then(function(r){return r.json();}).then(function(c){filterInterval=c.filterChangeIntervalH||8760;});',
       'fetchData();',
-      'setInterval(function(){if(curTab==="daten")fetchData();else if(curTab==="logs")fetchLogs();},15000);',
+      'if(!window._pollTimer){window._pollTimer=setInterval(function(){if(curTab==="daten")fetchData();else if(curTab==="logs")fetchLogs();},15000);}',
     ].join('\n');
 
     // ── Assemble HTML ──
@@ -1119,7 +1111,7 @@ class FreeAir100 extends utils.Adapter {
       '<span>Intervall:</span><span>' + iv + 's</span>',
       '<span>Filter-Intervall:</span><span>' + filterH + 'h</span>',
       '</div>',
-      '<script>' + JS + '<\/script>',
+      '<script>' + JS.join('\n').replace(/<\/script>/gi,'<\\/script>') + '<\/script>',
       '</body></html>'
     ].join('\n');
   }

@@ -152,6 +152,19 @@ Aktueller Workaround: Comfort-Level und Betriebsart direkt über
 
 ## Changelog
 
+### 0.3.6 (2026-03-16)
+- **Bugfix:** `JS.join('\n')` statt `JS + string` (Array-Komma-Problem im Browser-Script)
+- **Bugfix:** `tabs.indexOf()` null-sicher (kein `-1` Index mehr moeglich)
+- **Bugfix:** alle `fetch()` mit `.catch()` abgesichert
+- **Bugfix:** Polling-Timer Guard `window._pollTimer` verhindert mehrfachen Timer
+- **Bugfix:** DOM-Element-Zugriff null-gesichert (`getElementById` prueft auf null)
+- Logs-Limit auf 150 reduziert (weniger DOM-Last)
+
+### 0.3.5 (2026-03-16)
+- **Root-Cause Fix:** 40× serielles `await extendObjectAsync` in Schleife → ioBroker Startup-Timeout → SIGKILL
+- Lösung: alle `extendObjectAsync` parallel mit `Promise.all` — Initialisierung von ~40× langsam auf einmalig schnell
+- Kein `setState` mehr in `_initStates`
+
 ### 0.3.4 (2026-03-16)
 - **Kritischer Bugfix:** `JSON.stringify(this.config)` in `onReady` verursachte Crash (adapter-core v3 Proxy-Objekt)
 - **Bugfix:** `onReady` komplett in try/catch als Sicherheitsnetz

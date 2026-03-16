@@ -1,8 +1,16 @@
 {
   "common": {
     "name": "freeair100",
-    "version": "0.3.4",
+    "version": "0.3.6",
     "news": {
+      "0.3.6": {
+        "en": "JS browser fixes: JS.join, tabs.indexOf null-safe, fetch catch, timer guard, logs limit 150",
+        "de": "Browser-JS Fixes: JS.join statt Array+String, tabs.indexOf null-sicher, fetch catch, Timer-Guard, Logs-Limit 150"
+      },
+      "0.3.5": {
+        "en": "Critical fix: parallel Promise.all for extendObjectAsync (serial await caused startup SIGKILL timeout)",
+        "de": "Kritischer Fix: paralleles Promise.all fuer extendObjectAsync (serielles await verursachte Startup-Timeout SIGKILL)"
+      },
       "0.3.4": {
         "en": "Critical bugfix: JSON.stringify(this.config) crashed onReady; wrapped in try/catch",
         "de": "Kritischer Bugfix: JSON.stringify(this.config) crashte onReady; in try/catch eingebettet"
