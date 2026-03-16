@@ -311,10 +311,17 @@ class FreeAir100 extends utils.Adapter {
       this._dbg('_poll Schritt 2 OK: ' + parsedKeys.length + ' Keys geparst: ' + parsedKeys.join(', '));
       this._dbg('_poll Schluessel-Werte: LST=' + data.LST + '  TAU=' + data.TAU + '  TAB=' + data.TAB + '  WRP=' + data.WRP + '  CO2=' + data.CO2 + '  FST=' + data.FST + '  FS=' + data.FS);
 
-      if (!data.LST && !data.TAU && !data.WRP) {
-        this._dbg('_poll Schritt 2 FEHLER: keine Kerndaten (LST/TAU/WRP alle leer)');
-        this._dbg('_poll alle geparsten Daten: ' + JSON.stringify(data));
-        throw new Error('Keine Messwerte geparst');
+      const parsedCount = Object.keys(data).length;
+      if (parsedCount === 0 || (!data.LST && !data.TAU && !data.WRP && !data.CO2 && !data.CL)) {
+        this._dbg('_poll FEHLER: ' + parsedCount + ' Keys geparst, keine Kerndaten');
+        this._dbg('_poll HTML-Laenge: ' + html.length + '  HTML-Anfang (300): ' + html.substring(0,300).replace(/\n/g,' '));
+        this._dbg('_poll HTML-nav4-vorhanden: ' + html.includes('id="nav4"'));
+        this._dbg('_poll HTML-SN-vorhanden: ' + html.includes(sn));
+        this._dbg('_poll Alle Keys: ' + JSON.stringify(data));
+        this._log('warn', 'POLL', 'Parsing: ' + parsedCount + ' Keys, keine Kerndaten (LST/TAU/WRP leer). Geraet offline oder HTML-Struktur geaendert?');
+        // Dont throw - keep trying on next interval
+        await this.setStateAsync('info.connection', { val:false, ack:true }).catch(()=>{});
+        return;
       }
 
       this._dbg('_poll Schritt 3: _updateStates()');
@@ -367,7 +374,7 @@ class FreeAir100 extends utils.Adapter {
         return json(this.lastData);
       }
       if (p === '/api/logs')    return json(this.logs.slice(-150));
-      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.3.8' });
+      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.3.9' });
       if (p === '/api/config') {
         const cfg = { filterChangeIntervalH: this.config.filterChangeIntervalH || 8760 };
         this._dbg('HTTP /api/config: ' + JSON.stringify(cfg));
@@ -417,7 +424,7 @@ class FreeAir100 extends utils.Adapter {
   //  HTML BUILDER
   // ─────────────────────────────────────────────────────────────────────────
   buildHtml() {
-    const ver  = this.pack ? this.pack.version : '0.3.8';
+    const ver  = this.pack ? this.pack.version : '0.3.9';
     const sn   = (this.config && this.config.serialnumber) || '---';
     const port = (this.config && this.config.webPort) || 8096;
     const iv   = (this.config && this.config.pollInterval) || 300;
@@ -982,7 +989,7 @@ class FreeAir100 extends utils.Adapter {
       'fetch("/api/config").then(function(r){return r.json();}).then(function(c){filterInterval=c.filterChangeIntervalH||8760;});',
       'fetchData();',
       'if(!window._pollTimer){window._pollTimer=setInterval(function(){if(curTab==="daten")fetchData();else if(curTab==="logs")fetchLogs();},15000);}',
-    ].join('\n');
+    ];
 
     // ── Assemble HTML ──
     return [

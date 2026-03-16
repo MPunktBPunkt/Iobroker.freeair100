@@ -152,6 +152,11 @@ Aktueller Workaround: Comfort-Level und Betriebsart direkt über
 
 ## Changelog
 
+### 0.3.9 (2026-03-16)
+- **Fix:** `JS.join is not a function` — JS-Array hatte bereits `.join()` aufgerufen und war ein String
+- **Fix:** Parse-Fehler gibt jetzt detailliertes Debug-Log aus (HTML-Länge, nav4 vorhanden, alle Keys)
+- **Fix:** Adapter stoppt nicht mehr bei fehlenden Messwerten, sondern wiederholt beim nächsten Intervall
+
 ### 0.3.8 (2026-03-16)
 - **Root-Fix:** Alle 47 States in `io-package.json` `instanceObjects` verschoben
 - `_initStates()` und `extendObjectAsync`-Schleife komplett entfernt

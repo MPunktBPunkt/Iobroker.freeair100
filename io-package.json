@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "freeair100",
-    "version": "0.3.8",
+    "version": "0.3.9",
     "news": {
+      "0.3.9": {
+        "en": "Fix: JS.join crash (JS was string not array), better parse error logging",
+        "de": "Fix: JS.join Crash (JS war String statt Array), besseres Parse-Fehler-Logging"
+      },
       "0.3.8": {
         "en": "Root-fix: all 47 states moved to io-package.json instanceObjects, removed _initStates() from onReady completely",
         "de": "Root-Fix: alle 47 States in io-package.json instanceObjects, _initStates() aus onReady entfernt - kein Startup-Timeout mehr"
