@@ -152,6 +152,17 @@ Aktueller Workaround: Comfort-Level und Betriebsart direkt über
 
 ## Changelog
 
+### 0.3.4 (2026-03-16)
+- **Kritischer Bugfix:** `JSON.stringify(this.config)` in `onReady` verursachte Crash (adapter-core v3 Proxy-Objekt)
+- **Bugfix:** `onReady` komplett in try/catch als Sicherheitsnetz
+
+### 0.3.3 (2026-03-16)
+- **Kritischer Bugfix:** `await setStateAsync` am Anfang von `onReady` entfernt (SIGKILL durch DB-Timeout)
+- Debug-Version: 91 Logpunkte in allen Methoden
+
+### 0.3.2 (2026-03-16)
+- Debug-Version mit 91 `[DEBUG][SYSTEM]` Logpunkten zur Fehlerdiagnose
+
 ### 0.3.1 (2026-03-15)
 - **Bugfix:** jsonConfig `header`-Typ braucht Pflichtfeld `size` — war faelschlich entfernt
 - **Bugfix:** `onReady` — `setState` mit 1,5s Verzoegerung damit Objects-DB sicher bereit ist

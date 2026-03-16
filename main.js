@@ -84,7 +84,8 @@ class FreeAir100 extends utils.Adapter {
     } catch(e) {
       this._dbg('constructor package.json FEHLER: ' + e.message);
     }
-    this._dbg('constructor config keys: ' + JSON.stringify(Object.keys(this.config || {})));
+    try { this._dbg('constructor config keys: ' + JSON.stringify(Object.keys(this.config || {}))); }
+    catch(e) { this._dbg('constructor config keys FEHLER: ' + e.message); }
     this._dbg('constructor serialnumber=' + (this.config && this.config.serialnumber ? this.config.serialnumber : 'LEER'));
     this._dbg('constructor webPort=' + (this.config && this.config.webPort ? this.config.webPort : '(default 8096)'));
     this._dbg('constructor pollInterval=' + (this.config && this.config.pollInterval ? this.config.pollInterval : '(default 300)'));
@@ -95,17 +96,19 @@ class FreeAir100 extends utils.Adapter {
   }
 
   async onReady() {
+    try {
     this._dbg('onReady START');
-    this._dbg('onReady config dump: ' + JSON.stringify(this.config));
+    try {
+      const cfgSafe = { serialnumber: this.config.serialnumber, pollInterval: this.config.pollInterval,
+        webPort: this.config.webPort, filterChangeIntervalH: this.config.filterChangeIntervalH,
+        logBuffer: this.config.logBuffer, verbose: this.config.verbose };
+      this._dbg('onReady config dump: ' + JSON.stringify(cfgSafe));
+    } catch(e) { this._dbg('onReady config dump FEHLER: ' + e.message); }
     this._dbg('onReady namespace: ' + this.namespace);
 
-    this._dbg('onReady Schritt 1: setStateAsync info.connection=false');
-    try {
-      await this.setStateAsync('info.connection', { val: false, ack: true });
-      this._dbg('onReady Schritt 1: OK');
-    } catch(e) {
-      this._dbg('onReady Schritt 1: FEHLER - ' + e.message);
-    }
+    // KEIN await setStateAsync hier - States-DB ist noch nicht bereit!
+    // Wir setzen info.connection erst NACH _initStates via fire-and-forget
+    this._dbg('onReady Schritt 1: setStateAsync UEBERSPRUNGEN (DB noch nicht bereit)');
 
     this._dbg('onReady Schritt 2: _initStates() startet (' + STATE_DEFS.length + ' States)');
     try {
@@ -144,6 +147,9 @@ class FreeAir100 extends utils.Adapter {
     }, 1500);
 
     this._dbg('onReady DONE (Poll laeuft asynchron)');
+    } catch(fatalErr) {
+      try { this.log.error('[FATAL] onReady ungefangener Fehler: ' + fatalErr.message + ' | ' + fatalErr.stack); } catch(e2) { console.error('FATAL onReady:', fatalErr); }
+    }
   }
 
   async onUnload(callback) {
@@ -212,13 +218,12 @@ class FreeAir100 extends utils.Adapter {
     this._dbg('_initStates extendObjectAsync: ' + okCount + ' OK, ' + errCount + ' Fehler');
 
     const cfgInterval = this.config.filterChangeIntervalH || 8760;
-    this._dbg('_initStates setStateAsync filter.changeIntervalH=' + cfgInterval);
-    try {
-      await this.setStateAsync('filter.changeIntervalH', { val: cfgInterval, ack: true });
-      this._dbg('_initStates filter.changeIntervalH gesetzt: OK');
-    } catch(e) {
-      this._dbg('_initStates filter.changeIntervalH FEHLER: ' + e.message);
-    }
+    this._dbg('_initStates setState filter.changeIntervalH=' + cfgInterval + ' (fire-and-forget)');
+    // fire-and-forget: DB koennte noch nicht bereit sein
+    this.setState('filter.changeIntervalH', { val: cfgInterval, ack: true }, (err) => {
+      if (err) this._dbg('_initStates filter.changeIntervalH Callback-Fehler: ' + err);
+      else this._dbg('_initStates filter.changeIntervalH gesetzt: OK');
+    });
     this._dbg('_initStates DONE');
   }
 
@@ -409,8 +414,10 @@ class FreeAir100 extends utils.Adapter {
       this._dbg('_poll Schritt 3 OK');
 
       this._dbg('_poll Schritt 4: info.connection=true + lastPoll setzen');
-      await this.setStateAsync('info.connection', { val:true,  ack:true }).catch((e) => { this._dbg('info.connection FEHLER: ' + e.message); });
-      await this.setStateAsync('info.lastPoll',   { val:new Date().toISOString(), ack:true }).catch((e) => { this._dbg('info.lastPoll FEHLER: ' + e.message); });
+      try { await this.setStateAsync('info.connection', { val:true, ack:true }); this._dbg('info.connection=true OK'); }
+      catch(e) { this._dbg('info.connection FEHLER: ' + e.message); }
+      try { await this.setStateAsync('info.lastPoll', { val:new Date().toISOString(), ack:true }); this._dbg('info.lastPoll OK'); }
+      catch(e) { this._dbg('info.lastPoll FEHLER: ' + e.message); }
       this._dbg('_poll Schritt 4 OK');
 
       this._log('info', 'POLL', 'OK  LST=' + data.LST + ' m3/h  TAB=' + data.TAB + '\u00b0C  TAU=' + data.TAU + '\u00b0C  CO2=' + data.CO2 + ' ppm  WRP=' + data.WRP + '%  FST=' + data.FST + 'h');
@@ -418,7 +425,7 @@ class FreeAir100 extends utils.Adapter {
     } catch(e) {
       this._dbg('_poll FEHLER: ' + e.message);
       this._log('error', 'POLL', 'Fehler: ' + e.message);
-      await this.setStateAsync('info.connection', { val:false, ack:true }).catch(()=>{});
+      try { await this.setStateAsync('info.connection', { val:false, ack:true }); } catch(e2) { this._dbg('info.connection=false FEHLER: ' + e2.message); }
     }
   }
 
@@ -451,7 +458,7 @@ class FreeAir100 extends utils.Adapter {
         return json(this.lastData);
       }
       if (p === '/api/logs')    return json(this.logs.slice(-300));
-      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.3.2' });
+      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.3.4' });
       if (p === '/api/config') {
         const cfg = { filterChangeIntervalH: this.config.filterChangeIntervalH || 8760 };
         this._dbg('HTTP /api/config: ' + JSON.stringify(cfg));
@@ -497,7 +504,7 @@ class FreeAir100 extends utils.Adapter {
   //  HTML BUILDER
   // ─────────────────────────────────────────────────────────────────────────
   buildHtml() {
-    const ver  = this.pack ? this.pack.version : '0.3.2';
+    const ver  = this.pack ? this.pack.version : '0.3.4';
     const sn   = this.config.serialnumber || '---';
     const port = this.config.webPort || 8096;
     const iv   = this.config.pollInterval || 300;

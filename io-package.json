@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "freeair100",
-    "version": "0.3.3",
+    "version": "0.3.4",
     "news": {
+      "0.3.4": {
+        "en": "Critical bugfix: JSON.stringify(this.config) crashed onReady; wrapped in try/catch",
+        "de": "Kritischer Bugfix: JSON.stringify(this.config) crashte onReady; in try/catch eingebettet"
+      },
       "0.3.3": {
         "en": "Critical bugfix: removed await setStateAsync from onReady start (caused SIGKILL on startup)",
         "de": "Kritischer Bugfix: await setStateAsync am Anfang von onReady entfernt (verursachte SIGKILL beim Start)"
