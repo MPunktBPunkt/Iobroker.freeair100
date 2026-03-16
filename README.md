@@ -152,6 +152,16 @@ Aktueller Workaround: Comfort-Level und Betriebsart direkt über
 
 ## Changelog
 
+### 0.3.8 (2026-03-16)
+- **Root-Fix:** Alle 47 States in `io-package.json` `instanceObjects` verschoben
+- `_initStates()` und `extendObjectAsync`-Schleife komplett entfernt
+- `onReady()` laeuft jetzt in Millisekunden statt in Sekunden → kein Startup-Timeout mehr
+
+### 0.3.7 (2026-03-16)
+- **Fix:** Export auf `module.parent` umgestellt (robuster bei verschiedenen js-controller Versionen)
+- **Fix:** `EADDRINUSE` liefert klare Fehlermeldung statt stilles Crash
+- **Fix:** Alle `this.config.*` Zugriffe mit `(this.config && this.config.X)` abgesichert
+
 ### 0.3.6 (2026-03-16)
 - **Bugfix:** `JS.join('\n')` statt `JS + string` (Array-Komma-Problem im Browser-Script)
 - **Bugfix:** `tabs.indexOf()` null-sicher (kein `-1` Index mehr moeglich)

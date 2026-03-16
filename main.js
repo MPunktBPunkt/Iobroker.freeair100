@@ -6,65 +6,7 @@ const http  = require('http');
 const fs    = require('fs');
 const path  = require('path');
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  STATE DEFINITIONS
-// ─────────────────────────────────────────────────────────────────────────────
-const STATE_DEFS = [
-  // Info
-  { id:'info.connection',             type:'boolean', name:'Adapter verbunden',              role:'indicator.connected',   def:false },
-  { id:'info.lastPoll',               type:'string',  name:'Letzter Poll',                   role:'date',                  def:'' },
-  { id:'info.serialnumber',           type:'string',  name:'Seriennummer',                   role:'info.serial',           def:'' },
-  // Device
-  { id:'device.operatingMode',        type:'string',  name:'Betriebsart',                    role:'value',                 def:'' },
-  { id:'device.program',              type:'string',  name:'Programm',                       role:'value',                 def:'' },
-  { id:'device.comfortLevel',         type:'number',  name:'Comfort-Level',                  role:'value',                 def:0 },
-  { id:'device.operatingHours',       type:'number',  name:'Betriebsstunden',                role:'value',  unit:'h',      def:0 },
-  { id:'device.filterHours',          type:'number',  name:'Filterstunden (seit letztem Wechsel)', role:'value', unit:'h', def:0 },
-  { id:'device.floorSpace',           type:'number',  name:'Raumfl\u00e4che',               role:'value',  unit:'m\u00b2',def:0 },
-  { id:'device.twoRoomConnect',       type:'number',  name:'Zweitraum-Anschluss',            role:'value',  unit:'m\u00b3/h', def:0 },
-  { id:'device.fanSpeedSupply',       type:'number',  name:'Ventilatorgeschw. Zuluft',       role:'value',  unit:'1/min',  def:0 },
-  { id:'device.fanSpeedExtract',      type:'number',  name:'Ventilatorgeschw. Abluft',       role:'value',  unit:'1/min',  def:0 },
-  { id:'device.softwareVersion',      type:'string',  name:'Software-Version',               role:'info.firmware',         def:'' },
-  { id:'device.boardVersion',         type:'number',  name:'Leiterplatten-Version',          role:'value',                 def:0 },
-  { id:'device.rssi',                 type:'number',  name:'RSSI',                           role:'value',  unit:'dBm',    def:0 },
-  { id:'device.errorStatus',          type:'string',  name:'Fehlerstatus',                   role:'value',                 def:'' },
-  { id:'device.defrostingMode',       type:'boolean', name:'Enteisungsmodus',                role:'value',                 def:false },
-  { id:'device.summerCooling',        type:'boolean', name:'Sommer-K\u00fchlung',            role:'value',                 def:false },
-  // Air
-  { id:'air.flowRate',                type:'number',  name:'Luftstrom',                      role:'value',  unit:'m\u00b3/h', def:0 },
-  { id:'air.heatRecoveryPct',         type:'number',  name:'W\u00e4rmer\u00fcckgewinnung', role:'value',  unit:'%',        def:0 },
-  { id:'air.heatRecoveryW',           type:'number',  name:'Energier\u00fcckgewinnung',    role:'value',  unit:'W',        def:0 },
-  { id:'air.moistureRecovery',        type:'string',  name:'Feuchter\u00fcckgewinnung',    role:'value',                 def:'' },
-  { id:'air.pressure',                type:'number',  name:'Luftdruck',                      role:'value',  unit:'hPa',    def:0 },
-  { id:'air.density',                 type:'number',  name:'Luftdichte',                     role:'value',  unit:'kg/m\u00b3', def:0 },
-  // Temperatures
-  { id:'outdoor.temperature',         type:'number',  name:'Au\u00dfenluft Temperatur',     role:'value.temperature', unit:'\u00b0C', def:0 },
-  { id:'outdoor.humidityRel',         type:'number',  name:'Au\u00dfenluft Feuchtigkeit rel.', role:'value.humidity', unit:'%', def:0 },
-  { id:'outdoor.humidityAbs',         type:'number',  name:'Au\u00dfenluft Feuchtigkeit abs.', role:'value', unit:'g/m\u00b3', def:0 },
-  { id:'supply.temperature',          type:'number',  name:'Zuluft Temperatur',             role:'value.temperature', unit:'\u00b0C', def:0 },
-  { id:'supply.temperatureCalc',      type:'number',  name:'Zuluft Temperatur (ber.)',      role:'value.temperature', unit:'\u00b0C', def:0 },
-  { id:'extract.temperature',         type:'number',  name:'Abluft Temperatur',             role:'value.temperature', unit:'\u00b0C', def:0 },
-  { id:'extract.humidityRel',         type:'number',  name:'Abluft Feuchtigkeit rel.',      role:'value.humidity', unit:'%', def:0 },
-  { id:'extract.humidityAbs',         type:'number',  name:'Abluft Feuchtigkeit abs.',      role:'value', unit:'g/m\u00b3', def:0 },
-  { id:'extract.co2',                 type:'number',  name:'CO\u2082',                      role:'value', unit:'ppm',     def:0 },
-  { id:'exhaust.temperature',         type:'number',  name:'Fortluft Temperatur',           role:'value.temperature', unit:'\u00b0C', def:0 },
-  // Filter quality grades
-  { id:'filter.humidityGrade',        type:'number',  name:'Luftqualit\u00e4t Feuchtigkeit', role:'value',              def:0 },
-  { id:'filter.co2Grade',             type:'number',  name:'Luftqualit\u00e4t CO\u2082',    role:'value',              def:0 },
-  { id:'filter.outdoorFilterGrade',   type:'number',  name:'Au\u00dfenluftfilter Zustand', role:'value',              def:0 },
-  { id:'filter.extractFilterGrade',   type:'number',  name:'Abluftfilter Zustand',           role:'value',              def:0 },
-  // Filter change tracking  ← NEU
-  { id:'filter.hoursSinceChange',     type:'number',  name:'Stunden seit Filterwechsel',     role:'value', unit:'h',    def:0 },
-  { id:'filter.changeIntervalH',      type:'number',  name:'Filterwechsel-Intervall',        role:'value', unit:'h',    def:8760 },
-  { id:'filter.remainingHours',       type:'number',  name:'Verbleibende Stunden bis Filterwechsel', role:'value', unit:'h', def:8760 },
-  { id:'filter.remainingDays',        type:'number',  name:'Verbleibende Tage bis Filterwechsel', role:'value', unit:'d', def:365 },
-  { id:'filter.changeDue',            type:'boolean', name:'Filterwechsel f\u00e4llig',      role:'indicator', def:false },
-  { id:'filter.changeOverdueDays',    type:'number',  name:'Filterwechsel \u00fcberf\u00e4llig seit (Tage)', role:'value', unit:'d', def:0 },
-  { id:'filter.usagePct',             type:'number',  name:'Filternutzung in %',             role:'value', unit:'%',   def:0 },
-  // Control
-  { id:'control.comfortLevel',        type:'number',  name:'Comfort-Level setzen (1-5)',     role:'value', def:1, write:true },
-  { id:'control.operatingMode',       type:'string',  name:'Betriebsart setzen',             role:'value', def:'cmf', write:true },
-];
+// States sind in io-package.json instanceObjects definiert
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  ADAPTER CLASS
@@ -110,13 +52,7 @@ class FreeAir100 extends utils.Adapter {
     // Wir setzen info.connection erst NACH _initStates via fire-and-forget
     this._dbg('onReady Schritt 1: setStateAsync UEBERSPRUNGEN (DB noch nicht bereit)');
 
-    this._dbg('onReady Schritt 2: _initStates() startet (' + STATE_DEFS.length + ' States)');
-    try {
-      await this._initStates();
-      this._dbg('onReady Schritt 2: _initStates() OK');
-    } catch(e) {
-      this._dbg('onReady Schritt 2: _initStates() FEHLER - ' + e.message + ' ' + e.stack);
-    }
+    this._dbg('onReady Schritt 2: States werden durch io-package.json verwaltet - kein _initStates noetig');
 
     this._dbg('onReady Schritt 3: subscribeStates control.*');
     this.subscribeStates('control.*');
@@ -195,33 +131,14 @@ class FreeAir100 extends utils.Adapter {
   _log(level, cat, msg) {
     const entry = { ts: Date.now(), level, cat, msg: String(msg) };
     this.logs.push(entry);
-    if (this.logs.length > (this.config.logBuffer || 500)) this.logs.shift();
+    if (this.logs.length > ((this.config && this.config.logBuffer) || 500)) this.logs.shift();
     try { if (this.log && typeof this.log[level] === 'function') this.log[level]('[' + cat + '] ' + msg); } catch(e){}
   }
 
-  async _initStates() {
-    this._dbg('_initStates START: ' + STATE_DEFS.length + ' States PARALLEL anlegen');
-    const t0 = Date.now();
-
-    // Alle Objects PARALLEL anlegen - KEIN serielles await in Schleife!
-    const promises = STATE_DEFS.map(s =>
-      this.extendObjectAsync(s.id, {
-        type: 'state',
-        common: { name:s.name, type:s.type, role:s.role||'value', unit:s.unit, read:true, write:!!s.write, def:s.def },
-        native: {}
-      }).catch(e => {
-        this._dbg('_initStates FEHLER bei ' + s.id + ': ' + e.message);
-      })
-    );
-
-    await Promise.all(promises);
-    this._dbg('_initStates DONE in ' + (Date.now()-t0) + 'ms');
-    // setState wird NICHT hier gemacht - erst nach DB-ready im Poll-Timeout
-  }
 
   // ── Fetch HTML ────────────────────────────────────────────────────────────
   async fetchHtml() {
-    const sn = this.config.serialnumber || '';
+    const sn = (this.config && this.config.serialnumber) || '';
     const url = 'https://www.freeair-connect.de/?lang=de&serialnumber=' + encodeURIComponent(sn);
     this._dbg('fetchHtml START: ' + url);
     return new Promise((resolve, reject) => {
@@ -361,7 +278,7 @@ class FreeAir100 extends utils.Adapter {
 
   // ── Poll ──────────────────────────────────────────────────────────────────
   async _poll() {
-    const sn = this.config.serialnumber;
+    const sn = (this.config && this.config.serialnumber) || '';
     this._dbg('_poll START sn=' + sn + '  lastData keys=' + Object.keys(this.lastData).length);
     if (!sn) {
       this._dbg('_poll ABBRUCH: keine Seriennummer');
@@ -423,7 +340,7 @@ class FreeAir100 extends utils.Adapter {
 
   // ── HTTP server ────────────────────────────────────────────────────────────
   _startServer() {
-    const port = this.config.webPort || 8096;
+    const port = (this.config && this.config.webPort) || 8096;
     this._dbg('_startServer: erstelle HTTP-Server auf Port ' + port);
     this.httpServer = http.createServer((req, res) => {
       const p = new URL(req.url||'/', 'http://x').pathname;
@@ -450,7 +367,7 @@ class FreeAir100 extends utils.Adapter {
         return json(this.lastData);
       }
       if (p === '/api/logs')    return json(this.logs.slice(-150));
-      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.3.6' });
+      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.3.8' });
       if (p === '/api/config') {
         const cfg = { filterChangeIntervalH: this.config.filterChangeIntervalH || 8760 };
         this._dbg('HTTP /api/config: ' + JSON.stringify(cfg));
@@ -487,7 +404,11 @@ class FreeAir100 extends utils.Adapter {
     });
     this.httpServer.on('error', (e) => {
       this._dbg('_startServer FEHLER: ' + e.message + '  code=' + e.code);
-      this._log('error','HTTP', e.message);
+      if (e.code === 'EADDRINUSE') {
+        this._log('error', 'HTTP', 'Port ' + port + ' bereits belegt (EADDRINUSE)! Bitte anderen Port in den Einstellungen waehlen.');
+      } else {
+        this._log('error', 'HTTP', e.message);
+      }
     });
     this._dbg('_startServer: server.listen() aufgerufen');
   }
@@ -496,11 +417,11 @@ class FreeAir100 extends utils.Adapter {
   //  HTML BUILDER
   // ─────────────────────────────────────────────────────────────────────────
   buildHtml() {
-    const ver  = this.pack ? this.pack.version : '0.3.6';
-    const sn   = this.config.serialnumber || '---';
-    const port = this.config.webPort || 8096;
-    const iv   = this.config.pollInterval || 300;
-    const filterH = this.config.filterChangeIntervalH || 8760;
+    const ver  = this.pack ? this.pack.version : '0.3.8';
+    const sn   = (this.config && this.config.serialnumber) || '---';
+    const port = (this.config && this.config.webPort) || 8096;
+    const iv   = (this.config && this.config.pollInterval) || 300;
+    const filterH = (this.config && this.config.filterChangeIntervalH) || 8760;
 
     // ── CSS ──
     const CSS = [
@@ -1117,7 +1038,7 @@ class FreeAir100 extends utils.Adapter {
   }
 }
 
-if (require.main !== module) {
+if (module.parent) {
     module.exports = (options) => new FreeAir100(options);
 } else {
     new FreeAir100();

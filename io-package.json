@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "freeair100",
-    "version": "0.3.7",
+    "version": "0.3.8",
     "news": {
+      "0.3.8": {
+        "en": "Root-fix: all 47 states moved to io-package.json instanceObjects, removed _initStates() from onReady completely",
+        "de": "Root-Fix: alle 47 States in io-package.json instanceObjects, _initStates() aus onReady entfernt - kein Startup-Timeout mehr"
+      },
       "0.3.7": {
         "en": "Robustness: module.parent export, EADDRINUSE error message, this.config null guards everywhere",
         "de": "Stabilitaet: module.parent Export, EADDRINUSE Fehlermeldung, this.config null-Guards ueberall"
@@ -95,23 +99,641 @@
   "objects": [],
   "instanceObjects": [
     {
-      "_id": "info",
-      "type": "channel",
-      "common": {
-        "name": "Adapter-Info"
-      },
-      "native": {}
-    },
-    {
       "_id": "info.connection",
       "type": "state",
       "common": {
-        "name": "Verbunden",
+        "name": "Adapter verbunden",
         "type": "boolean",
         "role": "indicator.connected",
         "read": true,
         "write": false,
         "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.lastPoll",
+      "type": "state",
+      "common": {
+        "name": "Letzter Poll",
+        "type": "string",
+        "role": "date",
+        "read": true,
+        "write": false,
+        "def": ""
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.serialnumber",
+      "type": "state",
+      "common": {
+        "name": "Seriennummer",
+        "type": "string",
+        "role": "info.serial",
+        "read": true,
+        "write": false,
+        "def": ""
+      },
+      "native": {}
+    },
+    {
+      "_id": "device.operatingMode",
+      "type": "state",
+      "common": {
+        "name": "Betriebsart",
+        "type": "string",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": ""
+      },
+      "native": {}
+    },
+    {
+      "_id": "device.program",
+      "type": "state",
+      "common": {
+        "name": "Programm",
+        "type": "string",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": ""
+      },
+      "native": {}
+    },
+    {
+      "_id": "device.comfortLevel",
+      "type": "state",
+      "common": {
+        "name": "Comfort-Level",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0
+      },
+      "native": {}
+    },
+    {
+      "_id": "device.operatingHours",
+      "type": "state",
+      "common": {
+        "name": "Betriebsstunden",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "h"
+      },
+      "native": {}
+    },
+    {
+      "_id": "device.filterHours",
+      "type": "state",
+      "common": {
+        "name": "Filterstunden",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "h"
+      },
+      "native": {}
+    },
+    {
+      "_id": "device.floorSpace",
+      "type": "state",
+      "common": {
+        "name": "Raumflaeche",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "m2"
+      },
+      "native": {}
+    },
+    {
+      "_id": "device.twoRoomConnect",
+      "type": "state",
+      "common": {
+        "name": "Zweitraum-Anschluss",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "m3/h"
+      },
+      "native": {}
+    },
+    {
+      "_id": "device.fanSpeedSupply",
+      "type": "state",
+      "common": {
+        "name": "Ventilatorgeschw. Zuluft",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "1/min"
+      },
+      "native": {}
+    },
+    {
+      "_id": "device.fanSpeedExtract",
+      "type": "state",
+      "common": {
+        "name": "Ventilatorgeschw. Abluft",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "1/min"
+      },
+      "native": {}
+    },
+    {
+      "_id": "device.softwareVersion",
+      "type": "state",
+      "common": {
+        "name": "Software-Version",
+        "type": "string",
+        "role": "info.firmware",
+        "read": true,
+        "write": false,
+        "def": ""
+      },
+      "native": {}
+    },
+    {
+      "_id": "device.boardVersion",
+      "type": "state",
+      "common": {
+        "name": "Leiterplatten-Version",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0
+      },
+      "native": {}
+    },
+    {
+      "_id": "device.rssi",
+      "type": "state",
+      "common": {
+        "name": "RSSI",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "dBm"
+      },
+      "native": {}
+    },
+    {
+      "_id": "device.errorStatus",
+      "type": "state",
+      "common": {
+        "name": "Fehlerstatus",
+        "type": "string",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": ""
+      },
+      "native": {}
+    },
+    {
+      "_id": "device.defrostingMode",
+      "type": "state",
+      "common": {
+        "name": "Enteisungsmodus",
+        "type": "boolean",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "device.summerCooling",
+      "type": "state",
+      "common": {
+        "name": "Sommer-Kuehlung",
+        "type": "boolean",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "air.flowRate",
+      "type": "state",
+      "common": {
+        "name": "Luftstrom",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "m3/h"
+      },
+      "native": {}
+    },
+    {
+      "_id": "air.heatRecoveryPct",
+      "type": "state",
+      "common": {
+        "name": "Waermerueckgewinnung",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "%"
+      },
+      "native": {}
+    },
+    {
+      "_id": "air.heatRecoveryW",
+      "type": "state",
+      "common": {
+        "name": "Energierueckgewinnung",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "W"
+      },
+      "native": {}
+    },
+    {
+      "_id": "air.moistureRecovery",
+      "type": "state",
+      "common": {
+        "name": "Feuchterueckgewinnung",
+        "type": "string",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": ""
+      },
+      "native": {}
+    },
+    {
+      "_id": "air.pressure",
+      "type": "state",
+      "common": {
+        "name": "Luftdruck",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "hPa"
+      },
+      "native": {}
+    },
+    {
+      "_id": "air.density",
+      "type": "state",
+      "common": {
+        "name": "Luftdichte",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "kg/m3"
+      },
+      "native": {}
+    },
+    {
+      "_id": "outdoor.temperature",
+      "type": "state",
+      "common": {
+        "name": "Aussenluft Temperatur",
+        "type": "number",
+        "role": "value.temperature",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "°C"
+      },
+      "native": {}
+    },
+    {
+      "_id": "outdoor.humidityRel",
+      "type": "state",
+      "common": {
+        "name": "Aussenluft Feuchtigkeit rel.",
+        "type": "number",
+        "role": "value.humidity",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "%"
+      },
+      "native": {}
+    },
+    {
+      "_id": "outdoor.humidityAbs",
+      "type": "state",
+      "common": {
+        "name": "Aussenluft Feuchtigkeit abs.",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "g/m3"
+      },
+      "native": {}
+    },
+    {
+      "_id": "supply.temperature",
+      "type": "state",
+      "common": {
+        "name": "Zuluft Temperatur",
+        "type": "number",
+        "role": "value.temperature",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "°C"
+      },
+      "native": {}
+    },
+    {
+      "_id": "supply.temperatureCalc",
+      "type": "state",
+      "common": {
+        "name": "Zuluft Temperatur (ber.)",
+        "type": "number",
+        "role": "value.temperature",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "°C"
+      },
+      "native": {}
+    },
+    {
+      "_id": "extract.temperature",
+      "type": "state",
+      "common": {
+        "name": "Abluft Temperatur",
+        "type": "number",
+        "role": "value.temperature",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "°C"
+      },
+      "native": {}
+    },
+    {
+      "_id": "extract.humidityRel",
+      "type": "state",
+      "common": {
+        "name": "Abluft Feuchtigkeit rel.",
+        "type": "number",
+        "role": "value.humidity",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "%"
+      },
+      "native": {}
+    },
+    {
+      "_id": "extract.humidityAbs",
+      "type": "state",
+      "common": {
+        "name": "Abluft Feuchtigkeit abs.",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "g/m3"
+      },
+      "native": {}
+    },
+    {
+      "_id": "extract.co2",
+      "type": "state",
+      "common": {
+        "name": "CO2",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "ppm"
+      },
+      "native": {}
+    },
+    {
+      "_id": "exhaust.temperature",
+      "type": "state",
+      "common": {
+        "name": "Fortluft Temperatur",
+        "type": "number",
+        "role": "value.temperature",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "°C"
+      },
+      "native": {}
+    },
+    {
+      "_id": "filter.humidityGrade",
+      "type": "state",
+      "common": {
+        "name": "Luftqualitaet Feuchtigkeit",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0
+      },
+      "native": {}
+    },
+    {
+      "_id": "filter.co2Grade",
+      "type": "state",
+      "common": {
+        "name": "Luftqualitaet CO2",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0
+      },
+      "native": {}
+    },
+    {
+      "_id": "filter.outdoorFilterGrade",
+      "type": "state",
+      "common": {
+        "name": "Aussenluftfilter Zustand",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0
+      },
+      "native": {}
+    },
+    {
+      "_id": "filter.extractFilterGrade",
+      "type": "state",
+      "common": {
+        "name": "Abluftfilter Zustand",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0
+      },
+      "native": {}
+    },
+    {
+      "_id": "filter.hoursSinceChange",
+      "type": "state",
+      "common": {
+        "name": "Stunden seit Filterwechsel",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "h"
+      },
+      "native": {}
+    },
+    {
+      "_id": "filter.changeIntervalH",
+      "type": "state",
+      "common": {
+        "name": "Filterwechsel-Intervall",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 8760,
+        "unit": "h"
+      },
+      "native": {}
+    },
+    {
+      "_id": "filter.remainingHours",
+      "type": "state",
+      "common": {
+        "name": "Verbleibende Stunden bis Filterwechsel",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 8760,
+        "unit": "h"
+      },
+      "native": {}
+    },
+    {
+      "_id": "filter.remainingDays",
+      "type": "state",
+      "common": {
+        "name": "Verbleibende Tage bis Filterwechsel",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 365,
+        "unit": "d"
+      },
+      "native": {}
+    },
+    {
+      "_id": "filter.changeDue",
+      "type": "state",
+      "common": {
+        "name": "Filterwechsel faellig",
+        "type": "boolean",
+        "role": "indicator",
+        "read": true,
+        "write": false,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "filter.changeOverdueDays",
+      "type": "state",
+      "common": {
+        "name": "Filterwechsel ueberfaellig (Tage)",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "d"
+      },
+      "native": {}
+    },
+    {
+      "_id": "filter.usagePct",
+      "type": "state",
+      "common": {
+        "name": "Filternutzung %",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0,
+        "unit": "%"
+      },
+      "native": {}
+    },
+    {
+      "_id": "control.comfortLevel",
+      "type": "state",
+      "common": {
+        "name": "Comfort-Level setzen (1-5)",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": true,
+        "def": 1
+      },
+      "native": {}
+    },
+    {
+      "_id": "control.operatingMode",
+      "type": "state",
+      "common": {
+        "name": "Betriebsart setzen",
+        "type": "string",
+        "role": "value",
+        "read": true,
+        "write": true,
+        "def": "cmf"
       },
       "native": {}
     }
