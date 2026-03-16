@@ -1,8 +1,16 @@
 {
   "common": {
     "name": "freeair100",
-    "version": "0.3.9",
+    "version": "0.4.1",
     "news": {
+      "0.4.1": {
+        "en": "Fix: auth detection checked for id=nav4 which exists in all responses - now checks for actual data rows (<th>BA</th>)",
+        "de": "Fix: Auth-Erkennung pruefte auf id=nav4 (in ALLEN Responses vorhanden) - jetzt Pruefung auf echte Datensaetze (<th>BA</th>)"
+      },
+      "0.4.0": {
+        "en": "Authentication: login with password to freeair-connect.de, session cookie, real device control via POST",
+        "de": "Authentifizierung: Login mit Passwort bei freeair-connect.de, Session-Cookie, echte Geraetesteuerung via POST CL/OM"
+      },
       "0.3.9": {
         "en": "Fix: JS.join crash (JS was string not array), better parse error logging",
         "de": "Fix: JS.join Crash (JS war String statt Array), besseres Parse-Fehler-Logging"
@@ -98,7 +106,8 @@
     "webPort": 8096,
     "filterChangeIntervalH": 8760,
     "logBuffer": 500,
-    "verbose": false
+    "verbose": false,
+    "password": ""
   },
   "objects": [],
   "instanceObjects": [
@@ -743,5 +752,7 @@
     }
   ],
   "protectedNative": [],
-  "encryptedNative": []
+  "encryptedNative": [
+    "password"
+  ]
 }
