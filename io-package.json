@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "freeair100",
-    "version": "0.3.2",
+    "version": "0.3.3",
     "news": {
+      "0.3.3": {
+        "en": "Critical bugfix: removed await setStateAsync from onReady start (caused SIGKILL on startup)",
+        "de": "Kritischer Bugfix: await setStateAsync am Anfang von onReady entfernt (verursachte SIGKILL beim Start)"
+      },
       "0.3.2": {
         "en": "DEBUG version: 91 debug log points in all methods for diagnostics",
         "de": "DEBUG-Version: 91 Debug-Logpunkte in allen Methoden zur Fehlerdiagnose"
