@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "freeair100",
-    "version": "0.4.3",
+    "version": "0.4.4",
     "news": {
+      "0.4.4": {
+        "en": "Fix: login POST now sends existing session cookie to upgrade anonymous session to authenticated",
+        "de": "Fix: Login-POST sendet bestehenden Session-Cookie mit, damit Server anonymous Session zu authenticated hochstuft"
+      },
       "0.4.3": {
         "en": "Fix: correct API paths /api/values.php and /api/button.php (discovered via DevTools)",
         "de": "Fix: korrekte API-Pfade /api/values.php und /api/button.php (via DevTools ermittelt)"

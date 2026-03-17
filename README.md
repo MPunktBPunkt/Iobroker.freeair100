@@ -152,6 +152,12 @@ Aktueller Workaround: Comfort-Level und Betriebsart direkt über
 
 ## Changelog
 
+### 0.4.4 (2026-03-17)
+- **Root-Fix:** Login-POST sendet bestehenden `PHPSESSID`-Cookie mit
+- Damit stuft der Server die anonymous Session zu authenticated hoch
+- Richtiger Flow: `_ensureSession()` → `_login(mit Cookie)` → `fetchValues()`
+- Ohne Cookie beim Login-POST: Server erstellt neue Session die 401 fuer values.php gibt
+
 ### 0.4.3 (2026-03-17)
 - **Fix:** Korrekte API-Pfade (via DevTools ermittelt):
   - `values.php` → `/api/values.php` (war 404)

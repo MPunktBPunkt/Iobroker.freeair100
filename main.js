@@ -175,19 +175,27 @@ class FreeAir100 extends utils.Adapter {
       this._dbg('_login: kein Passwort konfiguriert - ueberspringe Login');
       return false;
     }
-    this._dbg('_login: POST Login SN=' + sn);
+    // Step 1: Ensure we have an anonymous session first (if not already)
+    if (!this.sessionCookie) {
+      this._dbg('_login: kein Cookie vorhanden - erstelle erst Session via Hauptseite');
+      await this._ensureSession();
+    }
+    this._dbg('_login: POST Login SN=' + sn + ' mit Cookie=' + (this.sessionCookie || 'keiner'));
     const body = 'serialnumber=' + encodeURIComponent(sn) + '&serial_password=' + encodeURIComponent(pw);
+    // CRITICAL: Send existing session cookie so server upgrades it to authenticated
+    const loginHeaders = {
+      'User-Agent':     'Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0',
+      'Content-Type':   'application/x-www-form-urlencoded',
+      'Content-Length': Buffer.byteLength(body),
+      'Accept':         'text/html,application/xhtml+xml',
+      'Accept-Language':'de-DE,de;q=0.9',
+    };
+    if (this.sessionCookie) loginHeaders['Cookie'] = this.sessionCookie;
     const res = await this._httpsRequest({
       hostname: 'www.freeair-connect.de',
       path: '/?lang=de&serialnumber=' + encodeURIComponent(sn),
       method: 'POST',
-      headers: {
-        'User-Agent':     'Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0',
-        'Content-Type':   'application/x-www-form-urlencoded',
-        'Content-Length': Buffer.byteLength(body),
-        'Accept':         'text/html,application/xhtml+xml',
-        'Accept-Language':'de-DE,de;q=0.9',
-      }
+      headers: loginHeaders,
     }, body);
     if (this.sessionCookie) {
       this._dbg('_login OK: Cookie=' + this.sessionCookie);
@@ -199,13 +207,51 @@ class FreeAir100 extends utils.Adapter {
     return false;
   }
 
-  // ── Fetch data via values.php JSON API ──────────────────────────────────
-  // Discovered via DevTools: freeair-connect.de loads data dynamically via
-  // GET /values.php?serialnumber=XXXXX  (76 kB JSON, no login required!)
+  // ── Establish session via main page GET ──────────────────────────────────
+  // DevTools analysis: session (PHPSESSID) is created by GET /?lang=de&serialnumber=X
+  // values.php just needs that session cookie - no password required for reading!
+  // Password (serial_password) is only needed for button.php (device control).
+  async _ensureSession() {
+    const sn = (this.config && this.config.serialnumber) || '';
+    this._dbg('_ensureSession: GET Hauptseite um Session zu erstellen');
+    const res = await this._httpsRequest({
+      hostname: 'www.freeair-connect.de',
+      path:     '/?lang=de&serialnumber=' + encodeURIComponent(sn),
+      method:   'GET',
+      headers: {
+        'User-Agent':      'Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0',
+        'Accept':          'text/html,application/xhtml+xml',
+        'Accept-Language': 'de-DE,de;q=0.9',
+      }
+    });
+    if (this.sessionCookie) {
+      this._dbg('_ensureSession: Session etabliert: ' + this.sessionCookie);
+      this._log('info', 'AUTH', 'Session etabliert via Hauptseite: ' + this.sessionCookie);
+      return true;
+    }
+    this._dbg('_ensureSession: Kein Cookie erhalten (status=' + res.status + ')');
+    return false;
+  }
+
+  // ── Fetch data via /api/values.php JSON API ───────────────────────────────
+  // Discovered via DevTools: freeair-connect.de loads all data via AJAX:
+  // GET /api/values.php?serialnumber=XXXXX (76 kB JSON)
+  // Session (PHPSESSID) must be established first via main page GET.
   async fetchValues() {
     const sn = (this.config && this.config.serialnumber) || '';
-    this._dbg('fetchValues START: /api/values.php?serialnumber=' + sn);
+    this._dbg('fetchValues START  cookie=' + (this.sessionCookie || 'keiner'));
     this._log('info', 'POLL', 'Abrufen /api/values.php SN=' + sn);
+
+    // Step 1: Establish anonymous session if not present
+    if (!this.sessionCookie) {
+      this._dbg('fetchValues: kein Cookie - erstelle Session via Hauptseite');
+      await this._ensureSession();
+      // Step 2: Authenticate session with password
+      if (this.config && this.config.password) {
+        this._dbg('fetchValues: Session erstellt, jetzt Login mit Passwort');
+        await this._login();
+      }
+    }
 
     const headers = {
       'User-Agent':      'Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0',
@@ -225,22 +271,21 @@ class FreeAir100 extends utils.Adapter {
 
     this._dbg('fetchValues: ' + res.body.length + ' Bytes  status=' + res.status);
 
-    // If we get a short response or error, try login first
-    if (res.status === 403 || (res.body.length < 100 && res.status !== 200)) {
-      this._dbg('fetchValues: Zugriff verweigert (status=' + res.status + ') - versuche Login');
-      if (this.config && this.config.password) {
-        await this._login();
-        if (this.sessionCookie) {
-          headers['Cookie'] = this.sessionCookie;
-          const res2 = await this._httpsRequest({
-            hostname: 'www.freeair-connect.de',
-            path:     '/api/values.php?serialnumber=' + encodeURIComponent(sn),
-            method:   'GET',
-            headers,
-          });
-          this._dbg('fetchValues Retry: ' + res2.body.length + ' Bytes');
-          return res2.body;
-        }
+    // 401: session expired or rejected - re-establish and retry once
+    if (res.status === 401 || res.status === 403 || res.body.length < 50) {
+      this._dbg('fetchValues: Status ' + res.status + ' - Session neu aufbauen');
+      this.sessionCookie = null;
+      await this._ensureSession();
+      if (this.sessionCookie) {
+        headers['Cookie'] = this.sessionCookie;
+        const res2 = await this._httpsRequest({
+          hostname: 'www.freeair-connect.de',
+          path:     '/api/values.php?serialnumber=' + encodeURIComponent(sn),
+          method:   'GET',
+          headers,
+        });
+        this._dbg('fetchValues Retry nach Session-Erneuerung: ' + res2.body.length + ' Bytes  status=' + res2.status);
+        return res2.body;
       }
     }
 
@@ -568,7 +613,7 @@ class FreeAir100 extends utils.Adapter {
         return json(this.lastData);
       }
       if (p === '/api/logs')    return json(this.logs.slice(-150));
-      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.4.3' });
+      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.4.4' });
       if (p === '/api/config') {
         const cfg = { filterChangeIntervalH: this.config.filterChangeIntervalH || 8760 };
         this._dbg('HTTP /api/config: ' + JSON.stringify(cfg));
@@ -619,7 +664,7 @@ class FreeAir100 extends utils.Adapter {
   //  HTML BUILDER
   // ─────────────────────────────────────────────────────────────────────────
   buildHtml() {
-    const ver  = this.pack ? this.pack.version : '0.4.3';
+    const ver  = this.pack ? this.pack.version : '0.4.4';
     const sn   = (this.config && this.config.serialnumber) || '---';
     const port = (this.config && this.config.webPort) || 8096;
     const iv   = (this.config && this.config.pollInterval) || 300;
