@@ -1,294 +1,227 @@
-# ioBroker.freeair100
+# ioBroker freeAir 100 Adapter
 
-[![License](https://img.shields.io/github/license/MPunktBPunkt/Iobroker.freeair100)](LICENSE)
-[![GitHub release](https://img.shields.io/github/v/release/MPunktBPunkt/Iobroker.freeair100)](https://github.com/MPunktBPunkt/Iobroker.freeair100/releases)
+[![Version](https://img.shields.io/badge/version-0.5.0-blue)](https://github.com/MPunktBPunkt/Iobroker.freeair100)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D16-brightgreen)](https://nodejs.org)
 
-**ioBroker-Adapter für die bluMartin freeAir 100 Lüftungsanlage**
-
-Liest alle Messwerte des freeAir 100 Lüftungsgeräts über das Cloud-Portal
+Liest alle Messwerte des **bluMartin freeAir 100** Lüftungsgeräts über das Cloud-Portal
 [freeair-connect.de](https://www.freeair-connect.de) und stellt sie als ioBroker-Datenpunkte
-sowie über ein integriertes Web-Dashboard bereit.
+sowie über ein modernes Web-Dashboard bereit.
 
 ---
 
-## Funktionen
+## Features
 
-- **45+ ioBroker-States**: Temperaturen aller 4 Luftströme, Luftfeuchte (rel + abs), CO₂,
-  Luftdruck, Wärmerückgewinnung, Filterstunden, Betriebsstunden und mehr
-- **Filterwechsel-Countdown**: Ring-Gauge, Status-Badge, 7 Filter-States inkl. `filter.changeDue` für Automation
-- **Filter-Ampel**: Luftqualität und Filterstatus als Stufe 1–4 (grün → rot)
-- **Dark Web-UI** auf Port 8096: Live-Dashboard mit SVG-Strömungsdiagramm, Bogen-Gauges und Metriken
-- **Steuerungs-UI**: Comfort-Level und Betriebsart (Comfort / Sleep / Turbo / Turbo Cool)
-- **Kein direkter Gerätezugang nötig** — Kommunikation über Cloud-Portal
+| Feature | Beschreibung |
+|---|---|
+| 📡 **Echtzeit-Daten** | 35+ Messwerte alle 5 Minuten (konfigurierbar) |
+| 🌡️ **Temperaturen** | Außen, Zuluft, Abluft, Fortluft (Sensor + berechnet) |
+| 💧 **Feuchte & CO₂** | Rel. + abs. Feuchte, CO₂ ppm, Luftqualitäts-Grades |
+| ♻️ **Wärmerückgewinnung** | % und Watt, Feuchterückgewinnung |
+| 🔧 **Steuerung** | Comfort-Level 1–5, Betriebsart (Comfort/Sleep/Turbo/Turbo Cool) |
+| 🔔 **Filter-Alarm** | State `filter.changeDue` für Automation |
+| 🛡️ **Code-9-Schutz** | Passwort-Sperre wird erkannt und über Neustarts hinaus eingehalten |
+| 🔌 **Verbindungstest** | Button in den Admin-Einstellungen |
+| 📊 **Web-Dashboard** | Port 8096, Strömungsdiagramm, Gauges, Filter-Ring |
 
 ---
 
-## Unterstützte Geräte
+## Ausgelesene Messwerte
 
-| Gerät         | Status         | Anmerkung                            |
-|---------------|----------------|--------------------------------------|
-| freeAir 100   | ✅ Getestet    | SW 2.09, mit freeAir Connect Portal  |
-| freeAir 100e  | 🔶 Ungetestet  | Vermutlich kompatibel                |
+### Temperaturen
+| State | Beschreibung | Einheit |
+|---|---|---|
+| `outdoor.temperature` | Außenluft | °C |
+| `extract.temperature` | Abluft | °C |
+| `supply.temperature` | Zuluft (Sensor) | °C |
+| `supply.temperatureCalc` | Zuluft (berechnet) | °C |
+| `exhaust.temperature` | Fortluft | °C |
+
+### Feuchte & Luft
+| State | Beschreibung | Einheit |
+|---|---|---|
+| `outdoor.humidityRel` | Außenluft Feuchte rel. | % |
+| `outdoor.humidityAbs` | Außenluft Feuchte abs. | g/m³ |
+| `extract.humidityRel` | Abluft Feuchte rel. | % |
+| `extract.humidityAbs` | Abluft Feuchte abs. | g/m³ |
+| `extract.co2` | CO₂ Abluft | ppm |
+| `air.flowRate` | Luftstrom | m³/h |
+| `air.pressure` | Luftdruck | hPa |
+| `air.density` | Luftdichte | kg/m³ |
+
+### Wärmerückgewinnung
+| State | Beschreibung | Einheit |
+|---|---|---|
+| `air.heatRecoveryPct` | Wärmerückgewinnung | % |
+| `air.heatRecoveryW` | Wärmerückgewinnung | W |
+| `air.moistureRecovery` | Feuchterückgewinnung | aktiv/inaktiv |
+
+### Gerätestatus
+| State | Beschreibung | Einheit |
+|---|---|---|
+| `device.operatingMode` | Betriebsart | cmf/slp/trb/trc |
+| `device.comfortLevel` | Comfort-Level | 1–5 |
+| `device.fanSpeedSupply` | Lüftergeschw. Zuluft | 1/min |
+| `device.fanSpeedExtract` | Lüftergeschw. Abluft | 1/min |
+| `device.operatingHours` | Betriebsstunden gesamt | h |
+| `device.filterHours` | Stunden seit Filterwechsel | h |
+| `device.rssi` | WLAN Signalstärke | dBm |
+| `device.errorStatus` | Fehlerstatus | — |
+
+### Filterüberwachung
+| State | Beschreibung | Einheit |
+|---|---|---|
+| `filter.changeDue` | **Filterwechsel fällig** ← für Automation | boolean |
+| `filter.remainingHours` | Verbleibende Stunden | h |
+| `filter.remainingDays` | Verbleibende Tage | d |
+| `filter.usagePct` | Filternutzung | % |
+| `filter.humidityGrade` | Luftqualität Feuchte | 1–4 |
+| `filter.co2Grade` | Luftqualität CO₂ | 1–4 |
+| `filter.outdoorFilterGrade` | Außenluftfilter Zustand | 1–4 |
+| `filter.extractFilterGrade` | Abluftfilter Zustand | 1–4 |
+
+### Steuerung (schreibbar)
+| State | Beschreibung | Werte |
+|---|---|---|
+| `control.comfortLevel` | Comfort-Level setzen | 1–5 |
+| `control.operatingMode` | Betriebsart setzen | cmf / slp / trb / trc |
 
 ---
 
 ## Installation
 
-**Option 1 — Direkt per URL (empfohlen):**
+### Voraussetzungen
+- ioBroker mit js-controller ≥ 5.0
+- Node.js ≥ 16
+- Aktives Gerät auf [freeair-connect.de](https://www.freeair-connect.de)
 
+### Via GitHub (empfohlen)
 ```bash
 cd /opt/iobroker
-iobroker url https://github.com/MPunktBPunkt/Iobroker.freeair100
-```
-
-**Option 2 — Mit `iobroker add` und anschließendem Neustart:**
-
-```bash
-cd /opt/iobroker
-iobroker add https://github.com/MPunktBPunkt/Iobroker.freeair100
+sudo -u iobroker -H bash -c "cd /opt/iobroker && npm install https://github.com/MPunktBPunkt/Iobroker.freeair100/archive/main.tar.gz --prefix node_modules/iobroker.freeair100"
+iobroker add freeair100
 iobroker restart freeair100.0
 ```
 
-**Option 3 — Über den ioBroker Admin:**
-
-Admin → Adapter → Zahnrad-Symbol oben → „Von URL installieren" →
-`https://github.com/MPunktBPunkt/Iobroker.freeair100` eingeben.
-
-Nach der Installation im Admin die Instanz konfigurieren (Seriennummer eintragen) und starten.
+### Via ZIP
+1. ZIP herunterladen und entpacken nach `/opt/iobroker/node_modules/iobroker.freeair100`
+2. `cd /opt/iobroker && sudo -u iobroker npm install --prefix node_modules/iobroker.freeair100`
+3. `iobroker add freeair100`
 
 ---
 
 ## Konfiguration
 
-| Parameter               | Beschreibung                                            | Standard |
-|-------------------------|---------------------------------------------------------|----------|
-| Seriennummer            | Seriennummer des Geräts (z.B. `20573`)                  | —        |
-| Abfrage-Intervall       | Wie oft freeair-connect.de abgefragt wird (Sek.)        | 300      |
-| Filterwechsel-Intervall | Betriebsstunden bis Filterwechsel (Standard: 1 Jahr)    | 8760     |
-| Web-UI Port             | Port für das integrierte Dashboard                      | 8096     |
-| Debug-Logging           | Detailliertere Logs                                     | false    |
+| Feld | Beschreibung |
+|---|---|
+| **Seriennummer** | Steht auf dem Gerät und im freeAir Connect Portal |
+| **Passwort** | Login-Passwort für freeair-connect.de (via Connect-USB vergeben) |
+| **Verbindung testen** | Testet Session + Login + Datenabruf direkt im Admin |
+| **Poll-Intervall** | Abfrage-Intervall in Sekunden (Standard: 300s = 5 Min) |
+| **Filter-Intervall** | Stunden bis Filterwechsel (Standard: 8760h = 1 Jahr) |
+| **Web-UI Port** | Port des Dashboards (Standard: 8096) |
 
-Die Seriennummer steht auf dem Gerät (Typenschild) und auf
-[freeair-connect.de](https://www.freeair-connect.de) oben im Eingabefeld.
-
----
-
-## Web-Dashboard
-
-Nach der Installation erreichbar unter:
-```
-http://<iobroker-ip>:8096
-```
-
-**Tabs:**
-- **Daten** — SVG-Strömungsdiagramm, Bogen-Gauges, Filterwechsel-Ring, Luftstrom-Karten, Steuerung
-- **Logs** — Adapter-Logs mit Level/Kategorie-Filter und Export
-- **System** — Adapter-Info, Sofort-Poll, Gerätedetails, Links zu Anleitungen
-
----
-
-## ioBroker-Datenpunkte (Auswahl)
-
-```
-freeair100.0
-├── air.flowRate                Luftstrom [m³/h]
-├── air.heatRecoveryPct         Wärmerückgewinnung [%]
-├── air.heatRecoveryW           Energierückgewinnung [W]
-├── outdoor.temperature         Außenluft [°C]
-├── outdoor.humidityRel         Außenluft Feuchte [%]
-├── supply.temperature          Zuluft [°C]
-├── extract.temperature         Abluft [°C]
-├── extract.co2                 CO₂ [ppm]
-├── exhaust.temperature         Fortluft [°C]
-├── filter.humidityGrade        Feuchtigkeit Stufe (1–4)
-├── filter.outdoorFilterGrade   Außenluftfilter Stufe (1–4)
-├── filter.extractFilterGrade   Abluftfilter Stufe (1–4)
-├── filter.hoursSinceChange     Betriebsstunden seit Filterwechsel [h]
-├── filter.remainingDays        Verbleibende Tage bis Filterwechsel [d]
-├── filter.changeDue            ⚠️ true = Filterwechsel fällig!
-├── filter.usagePct             Filternutzung [%]
-├── device.comfortLevel         Comfort-Level (1–5)
-├── device.operatingMode        Betriebsart (cmf/slp/trb/trc)
-├── device.operatingHours       Betriebsstunden gesamt [h]
-├── device.filterHours          Filterstunden (= hoursSinceChange) [h]
-├── control.comfortLevel        Steuerung: Comfort-Level setzen
-└── info.connection             Verbindungsstatus
-```
-
-Vollständige State-Übersicht: [ClaudeKontextfreeair100Adapter.md](ClaudeKontextfreeair100Adapter.md)
-
-### Filterwechsel-Automation
-
-```javascript
-// JavaScript-Adapter: Benachrichtigung wenn Filterwechsel fällig
-on({id: 'freeair100.0.filter.changeDue', change: 'ne'}, (obj) => {
-    if (obj.state.val === true) {
-        sendTo('telegram.0', 'freeAir 100: Filterwechsel ist fällig!');
-    }
-});
-```
+> ⚠️ **Wichtig:** Nicht zu viele falsche Passwort-Versuche! Nach zu vielen Fehlversuchen sperrt
+> freeair-connect.de die Seriennummer für 1 Stunde (Code 9). Der Adapter erkennt diese Sperre,
+> hält sie auch über Neustarts hinweg ein und zeigt die verbleibende Wartezeit im Log.
 
 ---
 
 ## Steuerung
 
-Comfort-Level (1–5) und Betriebsart (Comfort/Sleep/Turbo/Turbo Cool) können direkt aus dem Web-Dashboard oder über ioBroker-States gesteuert werden:
+Comfort-Level und Betriebsart können direkt aus dem Web-Dashboard oder über ioBroker-States gesetzt werden:
 
-- **Web-Dashboard:** Daten-Tab → Steuerungsbereich → Buttons auswählen → "Anwenden"
-- **ioBroker State:** `freeair100.0.control.comfortLevel` (1–5) oder `freeair100.0.control.operatingMode` (cmf/slp/trb/trc) schreiben
+**Web-Dashboard** (Port 8096) → Daten-Tab → Steuerungsbereich → Auswahl → "Anwenden"
 
-Die Steuerung erfolgt via `POST /api/button.php` auf freeair-connect.de — dazu muss ein Passwort in den Adapter-Einstellungen eingetragen sein.
+**ioBroker State schreiben:**
+```
+freeair100.0.control.comfortLevel   ← Zahl 1–5
+freeair100.0.control.operatingMode  ← "cmf" / "slp" / "trb" / "trc"
+```
+
+Betriebsarten: `cmf` = Comfort · `slp` = Sleep · `trb` = Turbo · `trc` = Turbo Cool
 
 ---
 
-## Voraussetzungen
+## Web-Dashboard
 
-- ioBroker mit js-controller ≥ 5.0
-- Node.js ≥ 16
-- freeAir 100 mit aktiver WLAN-/Cloud-Verbindung
-- Internet-Zugang zu `www.freeair-connect.de`
+Erreichbar unter `http://<ioBroker-IP>:8096`
+
+| Tab | Inhalt |
+|---|---|
+| **Daten** | Strömungsdiagramm, Temperatur-Karten, CO₂/WRG/Luftstrom-Gauges, Filter-Ring, Steuerung |
+| **Logs** | Adapter-Logs mit Level/Kategorie-Filter und Export |
+| **System** | Adapter-Info, Sofort-Poll, Gerätedetails |
+
+---
+
+## Automation-Beispiele
+
+**Filterwechsel-Erinnerung per Telegram:**
+```javascript
+on({ id: 'freeair100.0.filter.changeDue', change: 'ne' }, (obj) => {
+    if (obj.state.val === true) {
+        const days = getState('freeair100.0.filter.changeOverdueDays').val;
+        sendTo('telegram.0', 'freeAir 100: Filterwechsel fällig! ' + days + ' Tage überfällig.');
+    }
+});
+```
+
+**Nacht-Modus automatisch:**
+```javascript
+schedule('0 22 * * *', () => setState('freeair100.0.control.operatingMode', 'slp'));
+schedule('0 7  * * *', () => setState('freeair100.0.control.operatingMode', 'cmf'));
+```
 
 ---
 
 ## Changelog
 
+### 0.5.0 (2026-03-17)
+- Erste stabile Version — alle Kernfunktionen implementiert und getestet
+- Vollständiges README mit Wertetabellen und Beispielen
+
 ### 0.4.8 (2026-03-17)
-- **Fix:** Verbindungstest zeigt jetzt Ergebnis an (jsonConfig sendTo result-Struktur korrigiert)
-- Klare Statusmeldungen: ✅ OK / ⚠️ Gesperrt / ❌ Fehler
-- Pruefung ob Seriennummer konfiguriert ist vor Verbindungsversuch
+- **Fix:** Verbindungstest zeigt Ergebnis mit Emoji-Status (✅/⚠️/❌)
 
 ### 0.4.7 (2026-03-17)
-- **Fix:** Veraltete TBD-Hinweise aus Dashboard und README entfernt
-- Steuerung via `/api/button.php` ist vollstaendig implementiert (seit v0.4.0)
-- README Steuerungsabschnitt aktualisiert mit korrekter Anleitung
+- **Fix:** Veraltete TBD-Steuerungshinweise entfernt
 
 ### 0.4.6 (2026-03-17)
-- **Fix:** Code-9-Sperre ueberlebt Adapter-Neustart (gespeichert in `info.loginBlockedUntil` State)
-- **Fix:** `fetchValues()` Retry prueft Sperre und stoppt sofort wenn blockiert
-- **Neu:** Verbindungstest-Button in Admin-Einstellungen (testet Session + Login + values.php)
-- **Neu:** `onMessage()` Handler fuer Admin-UI Verbindungstest
+- **Fix:** Code-9-Sperre überlebt Adapter-Neustart (`info.loginBlockedUntil` State)
+- **Neu:** Verbindungstest-Button in Admin-Einstellungen
 
 ### 0.4.5 (2026-03-17)
-- **Fix:** Code 9 Erkennung: zu viele falsche Passwort-Versuche → Login fuer 1 Stunde sperren
-- **Fix:** Guard in `_login()` prueft ob Sperre noch aktiv, zeigt verbleibende Minuten
-- **Neu:** Vollstaendiges Key-Mapping aus language.php Analyse (alle Feldnamen bestaetigt)
-- Unbekannte Felder werden im Debug-Log gemeldet (fuer zukuenftige Erweiterungen)
+- **Fix:** Code-9-Erkennung und Login-Sperre für 1 Stunde
+- **Neu:** Vollständiges Key-Mapping aus language.php Analyse (alle 35 Felder)
 
 ### 0.4.4 (2026-03-17)
 - **Root-Fix:** Login-POST sendet bestehenden `PHPSESSID`-Cookie mit
-- Damit stuft der Server die anonymous Session zu authenticated hoch
-- Richtiger Flow: `_ensureSession()` → `_login(mit Cookie)` → `fetchValues()`
-- Ohne Cookie beim Login-POST: Server erstellt neue Session die 401 fuer values.php gibt
+- Korrekter Auth-Flow: `_ensureSession()` → `_login(mit Cookie)` → `fetchValues()`
 
 ### 0.4.3 (2026-03-17)
-- **Fix:** Korrekte API-Pfade (via DevTools ermittelt):
-  - `values.php` → `/api/values.php` (war 404)
-  - Button-Steuerung → `/api/button.php` (statt `/?lang=de&...`)
-- Steuerung sendet jetzt `CL + OM + serialnumber` an `/api/button.php`
+- **Fix:** Korrekte API-Pfade `/api/values.php` und `/api/button.php` (via DevTools)
 
 ### 0.4.2 (2026-03-16)
-- **Root-Fix:** Daten werden jetzt direkt von `values.php?serialnumber=XXXXX` als JSON abgerufen
-- Entdeckt per Browser DevTools: freeair-connect.de laedt Daten via AJAX, nicht im HTML
-- `parseValues()` mit flexiblem Key-Mapping (direkte + alternative Feldnamen)
-- `fetchHtml()` + `parseData()` nur noch als Fallback erhalten
+- **Root-Fix:** Daten von `/api/values.php` JSON-API statt HTML-Parsing
 
 ### 0.4.1 (2026-03-16)
-- **Fix:** Auth-Erkennung: `id="nav4"` ist in allen Responses vorhanden — pruefte deshalb nie auf Login
-- Korrekte Erkennung: `<th>BA</th>` fehlt bei unauthentifizierter Seite
-- `[AUTH]`-Logs jetzt sichtbar: zeigt ob Session-Cookie vorhanden
+- **Fix:** Auth-Erkennung prüft auf `<th>BA</th>` statt `id="nav4"`
 
 ### 0.4.0 (2026-03-16)
-- **NEU:** Authentifizierung bei freeair-connect.de mit Passwort (Session-Cookie/PHPSESSID)
-- **NEU:** Passwort-Feld in Adapter-Einstellungen (verschluesselt gespeichert via encryptedNative)
-- **NEU:** Automatischer Login + Retry wenn Login-Seite empfangen wird
-- **NEU:** Echte Geraetesteuerung via POST CL/OM (Comfort-Level + Betriebsart)
-- **NEU:** `sendControl()` Methode mit Session-Cookie
-- **Fix:** `_httpsRequest()` Helper fuer alle HTTPS-Requests mit Cookie-Handling
-- **Fix:** OM-Mapping: cmf=1, slp=2, trb=3, trc=4
-
-### 0.3.9 (2026-03-16)
-- **Fix:** `JS.join is not a function` — JS-Array hatte bereits `.join()` aufgerufen und war ein String
-- **Fix:** Parse-Fehler gibt jetzt detailliertes Debug-Log aus (HTML-Länge, nav4 vorhanden, alle Keys)
-- **Fix:** Adapter stoppt nicht mehr bei fehlenden Messwerten, sondern wiederholt beim nächsten Intervall
+- **Neu:** Session-Authentifizierung, Gerätesteuerung, Passwort-Feld
 
 ### 0.3.8 (2026-03-16)
-- **Root-Fix:** Alle 47 States in `io-package.json` `instanceObjects` verschoben
-- `_initStates()` und `extendObjectAsync`-Schleife komplett entfernt
-- `onReady()` laeuft jetzt in Millisekunden statt in Sekunden → kein Startup-Timeout mehr
-
-### 0.3.7 (2026-03-16)
-- **Fix:** Export auf `module.parent` umgestellt (robuster bei verschiedenen js-controller Versionen)
-- **Fix:** `EADDRINUSE` liefert klare Fehlermeldung statt stilles Crash
-- **Fix:** Alle `this.config.*` Zugriffe mit `(this.config && this.config.X)` abgesichert
-
-### 0.3.6 (2026-03-16)
-- **Bugfix:** `JS.join('\n')` statt `JS + string` (Array-Komma-Problem im Browser-Script)
-- **Bugfix:** `tabs.indexOf()` null-sicher (kein `-1` Index mehr moeglich)
-- **Bugfix:** alle `fetch()` mit `.catch()` abgesichert
-- **Bugfix:** Polling-Timer Guard `window._pollTimer` verhindert mehrfachen Timer
-- **Bugfix:** DOM-Element-Zugriff null-gesichert (`getElementById` prueft auf null)
-- Logs-Limit auf 150 reduziert (weniger DOM-Last)
-
-### 0.3.5 (2026-03-16)
-- **Root-Cause Fix:** 40× serielles `await extendObjectAsync` in Schleife → ioBroker Startup-Timeout → SIGKILL
-- Lösung: alle `extendObjectAsync` parallel mit `Promise.all` — Initialisierung von ~40× langsam auf einmalig schnell
-- Kein `setState` mehr in `_initStates`
-
-### 0.3.4 (2026-03-16)
-- **Kritischer Bugfix:** `JSON.stringify(this.config)` in `onReady` verursachte Crash (adapter-core v3 Proxy-Objekt)
-- **Bugfix:** `onReady` komplett in try/catch als Sicherheitsnetz
-
-### 0.3.3 (2026-03-16)
-- **Kritischer Bugfix:** `await setStateAsync` am Anfang von `onReady` entfernt (SIGKILL durch DB-Timeout)
-- Debug-Version: 91 Logpunkte in allen Methoden
-
-### 0.3.2 (2026-03-16)
-- Debug-Version mit 91 `[DEBUG][SYSTEM]` Logpunkten zur Fehlerdiagnose
-
-### 0.3.1 (2026-03-15)
-- **Bugfix:** jsonConfig `header`-Typ braucht Pflichtfeld `size` — war faelschlich entfernt
-- **Bugfix:** `onReady` — `setState` mit 1,5s Verzoegerung damit Objects-DB sicher bereit ist
-
-### 0.3.0 (2026-03-15)
-- **Bugfix:** `module.exports` auf adapter-core v3.x Factory-Pattern umgestellt (Adapter startete nicht)
-- **Bugfix:** `admin/jsonConfig.json` — `defaultValue` → `default`, ungültige Felder `sm`/`md`/`size` entfernt
-- **Bugfix:** `LICENSE`-Datei hinzugefügt
+- **Root-Fix:** 47 States in `instanceObjects` → kein Startup-Timeout mehr
 
 ### 0.2.0 (2026-03-15)
-- **Neu:** SVG-Strömungsdiagramm (Wärmetauscher mit 4 Luftpfaden, Live-Temperaturen)
-- **Neu:** 3× Bogen-Gauges (CO₂, Wärmerückgewinnung, Luftstrom)
-- **Neu:** Filterwechsel-Ring-Gauge mit Status-Badge und Progress-Bar
-- **Neu:** 7 Filter-States: `filter.changeDue`, `filter.remainingDays`, `filter.usagePct`, …
-- **Neu:** Konfigurationsparameter `filterChangeIntervalH` (Standard: 8760h = 1 Jahr)
-- **Neu:** WARN-Log wenn Filter < 30 Tage oder überfällig
-- Redesign: Grade-Karten, Metriken-Tabelle, dunklere Stream-Karten
+- Dashboard: SVG-Strömungsdiagramm, Bogen-Gauges, Filter-Ring
 
 ### 0.1.0 (2026-03-15)
 - Erstveröffentlichung
-- Cloud-Scraping freeair-connect.de (nav1 + nav4 + nav2)
-- 40+ ioBroker-States
-- Dark Web-UI mit 3 Tabs (Daten, Logs, System)
-- Steuerungs-UI (Anzeige, Steuerbefehl-API ausstehend)
-
----
-
-## Verwandte Adapter
-
-- [iobroker.kostalpiko](https://github.com/MPunktBPunkt/iobroker.kostalpiko) — Kostal PIKO Solarwechselrichter
-- [iobroker.linuxdashboard](https://github.com/MPunktBPunkt/iobroker.linuxdashboard) — Linux System-Dashboard
-- [iobroker.fritzwireguard](https://github.com/MPunktBPunkt/iobroker.fritzwireguard) — WireGuard VPN für FritzBox
-- [iobroker.metermaster](https://github.com/MPunktBPunkt/iobroker.metermaster) — Zähler-App Integration
 
 ---
 
 ## Lizenz
 
-MIT License — Copyright (c) 2026 MPunktBPunkt
-
----
-
-## Links
-
-- [freeAir Connect Portal](https://www.freeair-connect.de)
-- [bluMartin Anleitungen](https://blumartin.de/downloads/anleitungen/)
-- [bluMartin freeAir Support](https://blumartin.de/freeair-support/)
+MIT © 2026 MPunktBPunkt

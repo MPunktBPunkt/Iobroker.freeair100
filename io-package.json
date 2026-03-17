@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "freeair100",
-    "version": "0.4.8",
+    "version": "0.5.0",
     "news": {
+      "0.5.0": {
+        "en": "First stable release: full auth flow, JSON API, device control, Code-9 protection, connection test, updated README",
+        "de": "Erste stabile Version: vollstaendiger Auth-Flow, JSON-API, Geraetesteuerung, Code-9-Schutz, Verbindungstest, aktualisiertes README"
+      },
       "0.4.8": {
         "en": "Fix: connection test now shows result with emoji status, SN check, better error messages",
         "de": "Fix: Verbindungstest zeigt Ergebnis mit Emoji-Status, SN-Pruefung, bessere Fehlermeldungen"
