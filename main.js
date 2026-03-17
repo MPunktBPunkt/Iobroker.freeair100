@@ -616,7 +616,7 @@ class FreeAir100 extends utils.Adapter {
     }
   }
 
-  // ── Control (endpoint TBD) ─────────────────────────────────────────────────
+  // ── Control via POST /api/button.php ──────────────────────────────────────────────────────────────────────────────────────
   async setParams(cl, ba) {
     // OM numeric mapping: 1=cmf(Comfort), 2=slp(Sleep), 3=trb(Turbo), 4=trc(Turbo Cool)
     const omMap = { cmf: 1, slp: 2, trb: 3, trc: 4 };
@@ -722,7 +722,7 @@ class FreeAir100 extends utils.Adapter {
         return json(this.lastData);
       }
       if (p === '/api/logs')    return json(this.logs.slice(-150));
-      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.4.6' });
+      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.4.7' });
       if (p === '/api/config') {
         const cfg = { filterChangeIntervalH: this.config.filterChangeIntervalH || 8760 };
         this._dbg('HTTP /api/config: ' + JSON.stringify(cfg));
@@ -773,7 +773,7 @@ class FreeAir100 extends utils.Adapter {
   //  HTML BUILDER
   // ─────────────────────────────────────────────────────────────────────────
   buildHtml() {
-    const ver  = this.pack ? this.pack.version : '0.4.6';
+    const ver  = this.pack ? this.pack.version : '0.4.7';
     const sn   = (this.config && this.config.serialnumber) || '---';
     const port = (this.config && this.config.webPort) || 8096;
     const iv   = (this.config && this.config.pollInterval) || 300;
@@ -1032,7 +1032,7 @@ class FreeAir100 extends utils.Adapter {
       '<div class="metric"><span class="metric-lbl">WLAN RSSI</span><span class="metric-val" id="m-rssi">--</span></div>',
       '</div>',
       '<div class="ctrl-panel">',
-      '<div class="ctrl-heading">\u2699\uFE0F Steuerung <span style="color:var(--yellow);font-size:.68rem;text-transform:none;letter-spacing:0">(Endpunkt TBD)</span></div>',
+      '<div class="ctrl-heading">\u2699\uFE0F Steuerung</div>',
       '<div class="ctrl-row"><span class="ctrl-lbl">Comfort-Level</span>',
       '<div class="btn-grp" id="cl-btns">',
       '<button class="cbtn" data-cl="1" onclick="selCL(this)">1</button>',
@@ -1091,12 +1091,9 @@ class FreeAir100 extends utils.Adapter {
       '<div class="card" style="margin-bottom:14px"><div class="card-title">Ger\u00e4te-Details</div>',
       '<div id="devDetails"><span style="color:var(--dim)">Noch kein Poll\u2026</span></div>',
       '</div>',
-      '<div class="warn-box">',
-      '<strong style="color:var(--yellow)">\u26a0\uFE0F Steuerungsendpunkt noch nicht implementiert</strong><br>',
-      'Der AJAX-Endpunkt f\u00fcr Steuerkommandos auf freeair-connect.de muss noch analysiert werden.<br>',
-      '<strong>So finden:</strong> Browser DevTools \u2192 Netzwerk \u2192 freeair-connect.de laden \u2192 ',
-      'PRESS-Button klicken \u2192 "Anwenden" \u2192 XHR/Fetch-Request notieren.<br>',
-      'Bitte als <a style="color:var(--blue)" href="https://github.com/MPunktBPunkt/iobroker.freeair100/issues" target="_blank">GitHub Issue</a> melden.',
+      '<div class="info-box">',
+      '\u2139\uFE0F Steuerung via <strong>/api/button.php</strong> implementiert.',
+      ' Passwort in den Einstellungen eintragen damit Steuerung funktioniert.',
       '</div>'
     ].join('');
 

@@ -132,12 +132,12 @@ on({id: 'freeair100.0.filter.changeDue', change: 'ne'}, (obj) => {
 
 ## Steuerung
 
-> **Hinweis:** Die direkte Gerätesteuerung über die Cloud-API ist noch in Entwicklung.
-> Der genaue API-Endpunkt von freeair-connect.de für Steuerkommandos muss noch
-> reverse-engineered werden.
+Comfort-Level (1–5) und Betriebsart (Comfort/Sleep/Turbo/Turbo Cool) können direkt aus dem Web-Dashboard oder über ioBroker-States gesteuert werden:
 
-Aktueller Workaround: Comfort-Level und Betriebsart direkt über
-[freeAir Connect](https://www.freeair-connect.de) einstellen.
+- **Web-Dashboard:** Daten-Tab → Steuerungsbereich → Buttons auswählen → "Anwenden"
+- **ioBroker State:** `freeair100.0.control.comfortLevel` (1–5) oder `freeair100.0.control.operatingMode` (cmf/slp/trb/trc) schreiben
+
+Die Steuerung erfolgt via `POST /api/button.php` auf freeair-connect.de — dazu muss ein Passwort in den Adapter-Einstellungen eingetragen sein.
 
 ---
 
@@ -151,6 +151,11 @@ Aktueller Workaround: Comfort-Level und Betriebsart direkt über
 ---
 
 ## Changelog
+
+### 0.4.7 (2026-03-17)
+- **Fix:** Veraltete TBD-Hinweise aus Dashboard und README entfernt
+- Steuerung via `/api/button.php` ist vollstaendig implementiert (seit v0.4.0)
+- README Steuerungsabschnitt aktualisiert mit korrekter Anleitung
 
 ### 0.4.6 (2026-03-17)
 - **Fix:** Code-9-Sperre ueberlebt Adapter-Neustart (gespeichert in `info.loginBlockedUntil` State)

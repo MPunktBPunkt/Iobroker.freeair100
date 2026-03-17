@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "freeair100",
-    "version": "0.4.6",
+    "version": "0.4.7",
     "news": {
+      "0.4.7": {
+        "en": "Fix: removed outdated TBD control notices - control via /api/button.php is fully implemented",
+        "de": "Fix: veraltete TBD-Hinweise entfernt - Steuerung via /api/button.php ist vollstaendig implementiert"
+      },
       "0.4.6": {
         "en": "Fix: Code 9 block survives restart (persistent state), block-aware retry, connection test button in admin",
         "de": "Fix: Code-9-Sperre ueberlebt Neustart (State), blockierter Retry, Verbindungstest-Button im Admin"
