@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "freeair100",
-    "version": "0.4.7",
+    "version": "0.4.8",
     "news": {
+      "0.4.8": {
+        "en": "Fix: connection test now shows result with emoji status, SN check, better error messages",
+        "de": "Fix: Verbindungstest zeigt Ergebnis mit Emoji-Status, SN-Pruefung, bessere Fehlermeldungen"
+      },
       "0.4.7": {
         "en": "Fix: removed outdated TBD control notices - control via /api/button.php is fully implemented",
         "de": "Fix: veraltete TBD-Hinweise entfernt - Steuerung via /api/button.php ist vollstaendig implementiert"

@@ -122,21 +122,25 @@ class FreeAir100 extends utils.Adapter {
       this._dbg('onMessage test: SN=' + sn + '  pw=' + (pw ? 'gesetzt' : 'leer'));
       this._log('info', 'SYSTEM', 'Admin Verbindungstest gestartet...');
 
+      // jsonConfig sendTo expects callback called with { result: "text string" }
       const done = (msg) => {
         this._log('info', 'SYSTEM', 'Verbindungstest: ' + msg);
         if (obj.callback) this.sendTo(obj.from, obj.command, { result: msg }, obj.callback);
       };
 
-      // Check block
+      // Check block first
       if (this._loginBlockedUntil && Date.now() < this._loginBlockedUntil) {
         const rem = Math.ceil((this._loginBlockedUntil - Date.now()) / 60000);
-        return done('GESPERRT (Code 9): noch ' + rem + ' Minuten warten!');
+        return done('⚠️ GESPERRT (Code 9): Noch ' + rem + ' Minuten warten! Kein Login-Versuch.');
+      }
+      if (!sn) {
+        return done('❌ Fehler: Keine Seriennummer konfiguriert');
       }
 
       this._ensureSession()
         .then(() => {
-          if (!this.sessionCookie) return done('Fehler: Keine Session (Seriennummer korrekt?)');
-          if (!pw) return done('Session OK aber kein Passwort konfiguriert - nur Lesen ohne Steuerung');
+          if (!this.sessionCookie) return done('❌ Fehler: Keine Session erhalten. Seriennummer korrekt?');
+          if (!pw) return done('✅ Session OK - aber kein Passwort eingetragen. Daten lesen funktioniert, Steuerung nicht.');
           return this._login().then(() => {
             const sn2 = (this.config && this.config.serialnumber) || sn;
             return this._httpsRequest({
@@ -153,9 +157,11 @@ class FreeAir100 extends utils.Adapter {
               if (res.status === 200 && res.body.length > 100) {
                 let keys = 0;
                 try { keys = Object.keys(JSON.parse(res.body)).length; } catch(e) {}
-                done('OK: values.php geantwortet mit ' + res.body.length + ' Bytes (' + keys + ' Felder)');
+                done('✅ Verbindung OK! ' + keys + ' Datenpunkte empfangen (' + res.body.length + ' Bytes). Adapter ist bereit.');
+              } else if (res.status === 401) {
+                done('❌ Fehler: 401 Unauthorized - Passwort falsch oder Sitzung abgelaufen.');
               } else {
-                done('Fehler: values.php Status ' + res.status + ', ' + res.body.length + ' Bytes (Passwort falsch?)');
+                done('❌ Fehler: values.php Status ' + res.status + ', ' + res.body.length + ' Bytes.');
               }
             });
           });
@@ -722,7 +728,7 @@ class FreeAir100 extends utils.Adapter {
         return json(this.lastData);
       }
       if (p === '/api/logs')    return json(this.logs.slice(-150));
-      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.4.7' });
+      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.4.8' });
       if (p === '/api/config') {
         const cfg = { filterChangeIntervalH: this.config.filterChangeIntervalH || 8760 };
         this._dbg('HTTP /api/config: ' + JSON.stringify(cfg));
@@ -773,7 +779,7 @@ class FreeAir100 extends utils.Adapter {
   //  HTML BUILDER
   // ─────────────────────────────────────────────────────────────────────────
   buildHtml() {
-    const ver  = this.pack ? this.pack.version : '0.4.7';
+    const ver  = this.pack ? this.pack.version : '0.4.8';
     const sn   = (this.config && this.config.serialnumber) || '---';
     const port = (this.config && this.config.webPort) || 8096;
     const iv   = (this.config && this.config.pollInterval) || 300;

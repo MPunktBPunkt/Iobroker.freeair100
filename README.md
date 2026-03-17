@@ -152,6 +152,11 @@ Die Steuerung erfolgt via `POST /api/button.php` auf freeair-connect.de — dazu
 
 ## Changelog
 
+### 0.4.8 (2026-03-17)
+- **Fix:** Verbindungstest zeigt jetzt Ergebnis an (jsonConfig sendTo result-Struktur korrigiert)
+- Klare Statusmeldungen: ✅ OK / ⚠️ Gesperrt / ❌ Fehler
+- Pruefung ob Seriennummer konfiguriert ist vor Verbindungsversuch
+
 ### 0.4.7 (2026-03-17)
 - **Fix:** Veraltete TBD-Hinweise aus Dashboard und README entfernt
 - Steuerung via `/api/button.php` ist vollstaendig implementiert (seit v0.4.0)

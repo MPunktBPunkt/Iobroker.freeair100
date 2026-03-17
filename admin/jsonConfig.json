@@ -21,8 +21,15 @@
       "label": "Verbindung testen",
       "command": "test",
       "jsonData": "{\"serialnumber\": \"${data.serialnumber}\", \"password\": \"${data.password}\"}",
+      "variant": "contained",
+      "color": "primary",
       "result": {
         "type": "staticText",
+        "newLine": true,
+        "noTranslation": true,
+        "style": {
+          "fontWeight": "bold"
+        },
         "text": ""
       }
     },
