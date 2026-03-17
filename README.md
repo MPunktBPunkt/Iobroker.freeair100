@@ -152,6 +152,12 @@ Aktueller Workaround: Comfort-Level und Betriebsart direkt über
 
 ## Changelog
 
+### 0.4.3 (2026-03-17)
+- **Fix:** Korrekte API-Pfade (via DevTools ermittelt):
+  - `values.php` → `/api/values.php` (war 404)
+  - Button-Steuerung → `/api/button.php` (statt `/?lang=de&...`)
+- Steuerung sendet jetzt `CL + OM + serialnumber` an `/api/button.php`
+
 ### 0.4.2 (2026-03-16)
 - **Root-Fix:** Daten werden jetzt direkt von `values.php?serialnumber=XXXXX` als JSON abgerufen
 - Entdeckt per Browser DevTools: freeair-connect.de laedt Daten via AJAX, nicht im HTML

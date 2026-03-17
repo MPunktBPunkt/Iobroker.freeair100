@@ -204,8 +204,8 @@ class FreeAir100 extends utils.Adapter {
   // GET /values.php?serialnumber=XXXXX  (76 kB JSON, no login required!)
   async fetchValues() {
     const sn = (this.config && this.config.serialnumber) || '';
-    this._dbg('fetchValues START: values.php?serialnumber=' + sn);
-    this._log('info', 'POLL', 'Abrufen values.php SN=' + sn);
+    this._dbg('fetchValues START: /api/values.php?serialnumber=' + sn);
+    this._log('info', 'POLL', 'Abrufen /api/values.php SN=' + sn);
 
     const headers = {
       'User-Agent':      'Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0',
@@ -218,7 +218,7 @@ class FreeAir100 extends utils.Adapter {
 
     const res = await this._httpsRequest({
       hostname: 'www.freeair-connect.de',
-      path:     '/values.php?serialnumber=' + encodeURIComponent(sn),
+      path:     '/api/values.php?serialnumber=' + encodeURIComponent(sn),
       method:   'GET',
       headers,
     });
@@ -234,7 +234,7 @@ class FreeAir100 extends utils.Adapter {
           headers['Cookie'] = this.sessionCookie;
           const res2 = await this._httpsRequest({
             hostname: 'www.freeair-connect.de',
-            path:     '/values.php?serialnumber=' + encodeURIComponent(sn),
+            path:     '/api/values.php?serialnumber=' + encodeURIComponent(sn),
             method:   'GET',
             headers,
           });
@@ -272,20 +272,23 @@ class FreeAir100 extends utils.Adapter {
       this._log('warn', 'CTRL', 'Kein Session-Cookie - bitte zuerst anmelden');
       return { ok: false, error: 'Nicht angemeldet' };
     }
-    const body = 'CL=' + encodeURIComponent(cl) + '&OM=' + encodeURIComponent(om);
-    this._dbg('sendControl POST: ' + body);
+    // DevTools: button press POSTs to /api/button.php with CL + OM fields
+    const body = 'CL=' + encodeURIComponent(cl) + '&OM=' + encodeURIComponent(om) + '&serialnumber=' + encodeURIComponent(sn);
+    this._dbg('sendControl POST /api/button.php: ' + body);
     try {
       const res = await this._httpsRequest({
         hostname: 'www.freeair-connect.de',
-        path: '/?lang=de&serialnumber=' + encodeURIComponent(sn),
+        path: '/api/button.php',
         method: 'POST',
         headers: {
           'User-Agent':      'Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0',
           'Content-Type':    'application/x-www-form-urlencoded',
           'Content-Length':  Buffer.byteLength(body),
           'Cookie':          this.sessionCookie,
-          'Accept':          'text/html,application/xhtml+xml',
+          'Accept':          'application/json, */*',
           'Accept-Language': 'de-DE,de;q=0.9',
+          'Referer':         'https://www.freeair-connect.de/?lang=de&serialnumber=' + encodeURIComponent(sn),
+          'X-Requested-With':'XMLHttpRequest',
         }
       }, body);
       this._dbg('sendControl Response: ' + res.status);
@@ -494,7 +497,7 @@ class FreeAir100 extends utils.Adapter {
       if (!jsonStr || jsonStr.length < 10) {
         this._dbg('_poll FEHLER: Antwort zu kurz (' + (jsonStr?jsonStr.length:0) + ')');
         this._dbg('_poll Antwort-Anfang: ' + (jsonStr ? jsonStr.substring(0,200) : 'null'));
-        throw new Error('Ungueltige Antwort von values.php (len=' + (jsonStr?jsonStr.length:0) + ')');
+        throw new Error('Ungueltige Antwort von /api/values.php (len=' + (jsonStr?jsonStr.length:0) + ')');
       }
 
       this._dbg('_poll Schritt 2: parseValues()');
@@ -565,7 +568,7 @@ class FreeAir100 extends utils.Adapter {
         return json(this.lastData);
       }
       if (p === '/api/logs')    return json(this.logs.slice(-150));
-      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.4.2' });
+      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.4.3' });
       if (p === '/api/config') {
         const cfg = { filterChangeIntervalH: this.config.filterChangeIntervalH || 8760 };
         this._dbg('HTTP /api/config: ' + JSON.stringify(cfg));
@@ -616,7 +619,7 @@ class FreeAir100 extends utils.Adapter {
   //  HTML BUILDER
   // ─────────────────────────────────────────────────────────────────────────
   buildHtml() {
-    const ver  = this.pack ? this.pack.version : '0.4.2';
+    const ver  = this.pack ? this.pack.version : '0.4.3';
     const sn   = (this.config && this.config.serialnumber) || '---';
     const port = (this.config && this.config.webPort) || 8096;
     const iv   = (this.config && this.config.pollInterval) || 300;

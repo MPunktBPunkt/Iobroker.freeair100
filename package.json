@@ -1,6 +1,6 @@
 {
   "name": "iobroker.freeair100",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "ioBroker adapter for bluMartin freeAir 100 ventilation unit",
   "author": "MPunktBPunkt",
   "license": "MIT",

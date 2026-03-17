@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "freeair100",
-    "version": "0.4.2",
+    "version": "0.4.3",
     "news": {
+      "0.4.3": {
+        "en": "Fix: correct API paths /api/values.php and /api/button.php (discovered via DevTools)",
+        "de": "Fix: korrekte API-Pfade /api/values.php und /api/button.php (via DevTools ermittelt)"
+      },
       "0.4.2": {
         "en": "Root fix: data loaded from values.php JSON API (not HTML parsing). Discovered via DevTools XHR.",
         "de": "Root-Fix: Daten direkt von values.php JSON-API (kein HTML-Parsing mehr). Entdeckt via DevTools XHR."
