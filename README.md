@@ -152,6 +152,12 @@ Aktueller Workaround: Comfort-Level und Betriebsart direkt über
 
 ## Changelog
 
+### 0.4.6 (2026-03-17)
+- **Fix:** Code-9-Sperre ueberlebt Adapter-Neustart (gespeichert in `info.loginBlockedUntil` State)
+- **Fix:** `fetchValues()` Retry prueft Sperre und stoppt sofort wenn blockiert
+- **Neu:** Verbindungstest-Button in Admin-Einstellungen (testet Session + Login + values.php)
+- **Neu:** `onMessage()` Handler fuer Admin-UI Verbindungstest
+
 ### 0.4.5 (2026-03-17)
 - **Fix:** Code 9 Erkennung: zu viele falsche Passwort-Versuche → Login fuer 1 Stunde sperren
 - **Fix:** Guard in `_login()` prueft ob Sperre noch aktiv, zeigt verbleibende Minuten

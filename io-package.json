@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "freeair100",
-    "version": "0.4.5",
+    "version": "0.4.6",
     "news": {
+      "0.4.6": {
+        "en": "Fix: Code 9 block survives restart (persistent state), block-aware retry, connection test button in admin",
+        "de": "Fix: Code-9-Sperre ueberlebt Neustart (State), blockierter Retry, Verbindungstest-Button im Admin"
+      },
       "0.4.5": {
         "en": "Fix: Code 9 block detection (1h), complete field mapping from language.php analysis",
         "de": "Fix: Code 9 Sperrung erkennen (1h), vollstaendiges Key-Mapping aus language.php Analyse"
@@ -763,6 +767,19 @@
         "read": true,
         "write": true,
         "def": "cmf"
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.loginBlockedUntil",
+      "type": "state",
+      "common": {
+        "name": "Login gesperrt bis (Code 9)",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0
       },
       "native": {}
     }

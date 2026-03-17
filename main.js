@@ -57,6 +57,16 @@ class FreeAir100 extends utils.Adapter {
 
     this._dbg('onReady Schritt 2: States werden durch io-package.json verwaltet - kein _initStates noetig');
 
+    // Restore login block from previous run (survives restarts)
+    try {
+      const blockState = await this.getStateAsync('info.loginBlockedUntil');
+      if (blockState && blockState.val && Date.now() < blockState.val) {
+        this._loginBlockedUntil = blockState.val;
+        const remaining = Math.ceil((blockState.val - Date.now()) / 60000);
+        this._log('warn', 'AUTH', 'Passwort-Sperre (Code 9) aus vorherigem Lauf wiederhergestellt - noch ' + remaining + ' Min gesperrt');
+      }
+    } catch(e) { this._dbg('Kein gespeicherter Block-Timestamp'); }
+
     this._dbg('onReady Schritt 3: subscribeStates control.*');
     this.subscribeStates('control.*');
     this._dbg('onReady Schritt 3: OK');
@@ -101,6 +111,57 @@ class FreeAir100 extends utils.Adapter {
     } catch(e) { this._dbg('onUnload httpServer FEHLER: ' + e.message); }
     this._dbg('onUnload DONE');
     callback();
+  }
+
+  onMessage(obj) {
+    if (!obj || !obj.command) return;
+    if (obj.command === 'test') {
+      const cfg = obj.message || {};
+      const sn  = cfg.serialnumber || (this.config && this.config.serialnumber) || '';
+      const pw  = cfg.password     || (this.config && this.config.password)     || '';
+      this._dbg('onMessage test: SN=' + sn + '  pw=' + (pw ? 'gesetzt' : 'leer'));
+      this._log('info', 'SYSTEM', 'Admin Verbindungstest gestartet...');
+
+      const done = (msg) => {
+        this._log('info', 'SYSTEM', 'Verbindungstest: ' + msg);
+        if (obj.callback) this.sendTo(obj.from, obj.command, { result: msg }, obj.callback);
+      };
+
+      // Check block
+      if (this._loginBlockedUntil && Date.now() < this._loginBlockedUntil) {
+        const rem = Math.ceil((this._loginBlockedUntil - Date.now()) / 60000);
+        return done('GESPERRT (Code 9): noch ' + rem + ' Minuten warten!');
+      }
+
+      this._ensureSession()
+        .then(() => {
+          if (!this.sessionCookie) return done('Fehler: Keine Session (Seriennummer korrekt?)');
+          if (!pw) return done('Session OK aber kein Passwort konfiguriert - nur Lesen ohne Steuerung');
+          return this._login().then(() => {
+            const sn2 = (this.config && this.config.serialnumber) || sn;
+            return this._httpsRequest({
+              hostname: 'www.freeair-connect.de',
+              path: '/api/values.php?serialnumber=' + encodeURIComponent(sn2),
+              method: 'GET',
+              headers: {
+                'User-Agent': 'Mozilla/5.0',
+                'Accept': 'application/json',
+                'Cookie': this.sessionCookie,
+                'X-Requested-With': 'XMLHttpRequest',
+              }
+            }).then(res => {
+              if (res.status === 200 && res.body.length > 100) {
+                let keys = 0;
+                try { keys = Object.keys(JSON.parse(res.body)).length; } catch(e) {}
+                done('OK: values.php geantwortet mit ' + res.body.length + ' Bytes (' + keys + ' Felder)');
+              } else {
+                done('Fehler: values.php Status ' + res.status + ', ' + res.body.length + ' Bytes (Passwort falsch?)');
+              }
+            });
+          });
+        })
+        .catch(e => done('Fehler: ' + e.message));
+    }
   }
 
   onStateChange(id, state) {
@@ -210,6 +271,8 @@ class FreeAir100 extends utils.Adapter {
     if (res.body && res.body.includes('"9"') || res.body.includes('blockiert') || res.body.includes('blocked')) {
       const blockUntil = Date.now() + 60 * 60 * 1000; // 1 hour
       this._loginBlockedUntil = blockUntil;
+      // Persist block timestamp so it survives adapter restarts
+      this.setStateAsync('info.loginBlockedUntil', { val: blockUntil, ack: true }).catch(() => {});
       this._log('error', 'AUTH', 'Code 9: Zu viele falsche Passwort-Versuche! Seriennummer fuer 1 Stunde gesperrt. Naechster Versuch: ' + new Date(blockUntil).toLocaleTimeString('de-DE'));
       this._dbg('_login: BLOCKED bis ' + new Date(blockUntil).toISOString());
       return false;
@@ -288,11 +351,18 @@ class FreeAir100 extends utils.Adapter {
 
     this._dbg('fetchValues: ' + res.body.length + ' Bytes  status=' + res.status);
 
-    // 401: session expired or rejected - re-establish and retry once
+    // 401: session expired - re-establish and retry ONLY if not blocked
     if (res.status === 401 || res.status === 403 || res.body.length < 50) {
-      this._dbg('fetchValues: Status ' + res.status + ' - Session neu aufbauen');
+      if (this._loginBlockedUntil && Date.now() < this._loginBlockedUntil) {
+        const remaining = Math.ceil((this._loginBlockedUntil - Date.now()) / 60000);
+        this._dbg('fetchValues: 401 aber Login gesperrt (Code 9) - noch ' + remaining + ' Min');
+        this._log('warn', 'AUTH', 'Daten nicht abrufbar: Passwort-Sperre aktiv, noch ' + remaining + ' Min');
+        return '';
+      }
+      this._dbg('fetchValues: Status ' + res.status + ' - Session + Login neu aufbauen');
       this.sessionCookie = null;
       await this._ensureSession();
+      if (this.config && this.config.password) await this._login();
       if (this.sessionCookie) {
         headers['Cookie'] = this.sessionCookie;
         const res2 = await this._httpsRequest({
@@ -301,7 +371,7 @@ class FreeAir100 extends utils.Adapter {
           method:   'GET',
           headers,
         });
-        this._dbg('fetchValues Retry nach Session-Erneuerung: ' + res2.body.length + ' Bytes  status=' + res2.status);
+        this._dbg('fetchValues Retry: ' + res2.body.length + ' Bytes  status=' + res2.status);
         return res2.body;
       }
     }
@@ -652,7 +722,7 @@ class FreeAir100 extends utils.Adapter {
         return json(this.lastData);
       }
       if (p === '/api/logs')    return json(this.logs.slice(-150));
-      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.4.5' });
+      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.4.6' });
       if (p === '/api/config') {
         const cfg = { filterChangeIntervalH: this.config.filterChangeIntervalH || 8760 };
         this._dbg('HTTP /api/config: ' + JSON.stringify(cfg));
@@ -703,7 +773,7 @@ class FreeAir100 extends utils.Adapter {
   //  HTML BUILDER
   // ─────────────────────────────────────────────────────────────────────────
   buildHtml() {
-    const ver  = this.pack ? this.pack.version : '0.4.5';
+    const ver  = this.pack ? this.pack.version : '0.4.6';
     const sn   = (this.config && this.config.serialnumber) || '---';
     const port = (this.config && this.config.webPort) || 8096;
     const iv   = (this.config && this.config.pollInterval) || 300;

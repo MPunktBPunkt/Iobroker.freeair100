@@ -16,6 +16,16 @@
       "label": "Passwort (freeAir Connect)",
       "help": "Passwort fuer den Login auf freeair-connect.de. Wird benoetigt um Daten abzurufen."
     },
+    "connectionTest": {
+      "type": "sendTo",
+      "label": "Verbindung testen",
+      "command": "test",
+      "jsonData": "{\"serialnumber\": \"${data.serialnumber}\", \"password\": \"${data.password}\"}",
+      "result": {
+        "type": "staticText",
+        "text": ""
+      }
+    },
     "_h2": {
       "type": "header",
       "text": "Abfrage",
