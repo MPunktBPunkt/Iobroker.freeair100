@@ -19,8 +19,9 @@ class FreeAir100 extends utils.Adapter {
     this.httpServer   = null;
     this.pollTimer    = null;
     this.pack         = null;
-    this.sessionCookie = null;   // PHPSESSID from login
-    this.loginPending  = false;
+    this.sessionCookie      = null;   // PHPSESSID from login
+    this.loginPending       = false;
+    this._loginBlockedUntil = null;  // timestamp when block expires (Code 9)
     this._dbg('constructor START - Node.js ' + process.version + '  pid=' + process.pid);
     try {
       this.pack = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
@@ -175,6 +176,14 @@ class FreeAir100 extends utils.Adapter {
       this._dbg('_login: kein Passwort konfiguriert - ueberspringe Login');
       return false;
     }
+    // Guard: blocked due to too many wrong passwords
+    if (this._loginBlockedUntil && Date.now() < this._loginBlockedUntil) {
+      const remaining = Math.ceil((this._loginBlockedUntil - Date.now()) / 60000);
+      this._dbg('_login: GESPERRT fuer noch ' + remaining + ' Minuten');
+      this._log('warn', 'AUTH', 'Login gesperrt (Code 9) - noch ' + remaining + ' Min warten');
+      return false;
+    }
+    this._loginBlockedUntil = null;
     // Step 1: Ensure we have an anonymous session first (if not already)
     if (!this.sessionCookie) {
       this._dbg('_login: kein Cookie vorhanden - erstelle erst Session via Hauptseite');
@@ -197,6 +206,14 @@ class FreeAir100 extends utils.Adapter {
       method: 'POST',
       headers: loginHeaders,
     }, body);
+    // Check for block (Code 9 = too many wrong passwords)
+    if (res.body && res.body.includes('"9"') || res.body.includes('blockiert') || res.body.includes('blocked')) {
+      const blockUntil = Date.now() + 60 * 60 * 1000; // 1 hour
+      this._loginBlockedUntil = blockUntil;
+      this._log('error', 'AUTH', 'Code 9: Zu viele falsche Passwort-Versuche! Seriennummer fuer 1 Stunde gesperrt. Naechster Versuch: ' + new Date(blockUntil).toLocaleTimeString('de-DE'));
+      this._dbg('_login: BLOCKED bis ' + new Date(blockUntil).toISOString());
+      return false;
+    }
     if (this.sessionCookie) {
       this._dbg('_login OK: Cookie=' + this.sessionCookie);
       this._log('info', 'AUTH', 'Login erfolgreich, Session-Cookie erhalten');
@@ -362,50 +379,72 @@ class FreeAir100 extends utils.Adapter {
       return this.parseData(jsonStr);
     }
 
-    // Map JSON fields to our abbreviation scheme
-    // Direct fields (if values.php uses same keys as nav4)
-    const directKeys = ['BA','PRG','EM','SK','CL','RF','VGZ','VGA','LST',
-      'TAB','FAB','TAU','FAU','CO2','TZU','TZB','TFO','LDR','LDI',
-      'WRP','WRW','BST','FST','SNR','RSSI','FS','FRG'];
-    directKeys.forEach(k => {
+    // ── Complete field mapping from language.php analysis ──────────────────
+    // language.php reveals exact field names: PL_xxx → abbreviation → label
+    // All these keys are expected in values.php JSON response
+    const FIELD_KEYS = [
+      // Temperatures
+      'TAU',   // Temperatur Außen (PL_TOU)
+      'TAB',   // Temperatur Abluft (PL_TET)
+      'TFO',   // Temperatur Fortluft (PL_TEH)
+      'TZU',   // Temperatur Zuluft Sensor (PL_TSU)
+      'TZB',   // Temperatur Zuluft berechnet (PL_TSC)
+      // Humidity
+      'FAU',   // Feuchtigkeit Außen rel. (PL_HOU)
+      'FAB',   // Feuchtigkeit Abluft rel. (PL_HET)
+      'FAU_abs', // Feuchtigkeit Außen abs.
+      'FAB_abs', // Feuchtigkeit Abluft abs.
+      // Air quality
+      'CO2',   // CO2 ppm (PL_CO2 / MV_CO2)
+      'LDR',   // Luftdruck hPa (PL_APR)
+      'LDI',   // Luftdichte kg/m3 (PL_ADY)
+      'LST',   // Luftstrom m3/h (PL_AFL)
+      // Heat recovery
+      'WRP',   // Wärmerückgewinnung % (PL_HRP)
+      'WRW',   // Wärmerückgewinnung W (PL_HRW)
+      'EM',    // Entfeuchtungs-Modus (PL_HR)
+      'FRG',   // Feuchterückgewinnung Text
+      // Device state
+      'BA',    // Betriebsart (PL_OM / D_OM)
+      'PRG',   // Programm
+      'CL',    // Comfort-Level
+      'RF',    // Reduktion (PL_RA)
+      'SK',    // Sommer-Kühlung (PL_SC)
+      // Fan speeds
+      'VGZ',   // Ventilatorgeschw. Zuluft (PL_FSS)
+      'VGA',   // Ventilatorgeschw. Abluft (PL_FSE)
+      // Hours & service
+      'BST',   // Betriebsstunden (PL_OPH / D_OPH)
+      'FST',   // Filterstunden (PL_FIH / D_FIH)
+      // Device info
+      'SNR',   // Seriennummer (MV_SNR)
+      'RSSI',  // RSSI dBm (PL_RSSI_value)
+      'FS',    // Fehlerstatus (PL_ES / MV_ES)
+      'LPV',   // Leiterplatten-Version (D_CBV)
+      // Grades (Luftqualität Stufe 1-4)
+      'GRADE_HUM', 'GRADE_CO2', 'GRADE_FILT_OUT', 'GRADE_FILT_EXT',
+      // Additional from MV_ mapping
+      'WEN',   // Feuchterückgewinnung (MV_WAR)
+      'ERN',   // Wärmerückgewinnung Norm (MV_HRN)
+      'ERB',   // Wärmerückgewinnung Brutto (MV_HRU)
+      'ENE',   // Entzogene Energie (MV_EXE)
+      'KUL',   // Kühlenergie (MV_COE)
+      'EVB',   // Energieverbrauch (MV_PCO)
+      'LAT',   // Luft Ausgetauscht (MV_AEX)
+      'EIN',   // Eingeschaltet/Restarted (MV_RES)
+      'ZGE',   // Zurückgewonnene Energie (MV_REE)
+    ];
+
+    FIELD_KEYS.forEach(k => {
       if (raw[k] !== undefined && raw[k] !== null) d[k] = String(raw[k]);
     });
 
-    // Also try common alternative key names from REST APIs
-    const keyMap = {
-      'airflow':          'LST',  'flowrate':          'LST',
-      'heatRecovery':     'WRP',  'heatRecoveryW':     'WRW',
-      'tempOutdoor':      'TAU',  'tempSupply':        'TZU',
-      'tempExtract':      'TAB',  'tempExhaust':       'TFO',
-      'humOutdoor':       'FAU',  'humExtract':        'FAB',
-      'co2':              'CO2',  'co2ppm':            'CO2',
-      'pressure':         'LDR',  'density':           'LDI',
-      'comfortLevel':     'CL',   'comfort_level':     'CL',
-      'operatingMode':    'BA',   'operating_mode':    'BA',
-      'operatingHours':   'BST',  'filterHours':       'FST',
-      'fanSupply':        'VGZ',  'fanExtract':        'VGA',
-      'rssi':             'RSSI', 'errorStatus':       'FS',
-      'serialNumber':     'SNR',  'serial':            'SNR',
-    };
-    Object.keys(keyMap).forEach(jsonKey => {
-      if (raw[jsonKey] !== undefined && raw[jsonKey] !== null && !d[keyMap[jsonKey]]) {
-        d[keyMap[jsonKey]] = String(raw[jsonKey]);
-      }
-    });
-
-    // Humidity absolute (may be nested)
-    if (raw.FAU_abs !== undefined) d.FAU_abs = raw.FAU_abs;
-    if (raw.FAB_abs !== undefined) d.FAB_abs = raw.FAB_abs;
-    if (raw.humOutdoorAbs !== undefined) d.FAU_abs = raw.humOutdoorAbs;
-    if (raw.humExtractAbs !== undefined) d.FAB_abs = raw.humExtractAbs;
-
-    // Grade values (1-4)
-    if (raw.GRADE_HUM !== undefined)      d.GRADE_HUM      = raw.GRADE_HUM;
-    if (raw.GRADE_CO2 !== undefined)      d.GRADE_CO2      = raw.GRADE_CO2;
-    if (raw.GRADE_FILT_OUT !== undefined) d.GRADE_FILT_OUT = raw.GRADE_FILT_OUT;
-    if (raw.GRADE_FILT_EXT !== undefined) d.GRADE_FILT_EXT = raw.GRADE_FILT_EXT;
-    if (raw.gradeHumidity !== undefined)  d.GRADE_HUM      = raw.gradeHumidity;
-    if (raw.gradeCO2 !== undefined)       d.GRADE_CO2      = raw.gradeCO2;
+    // Log unknown keys for future mapping discovery
+    const knownKeys = new Set(FIELD_KEYS.concat(['_rawJson']));
+    const unknownKeys = Object.keys(raw).filter(k => !knownKeys.has(k));
+    if (unknownKeys.length > 0) {
+      this._dbg('parseValues: Unbekannte Keys (fuer Mapping-Erweiterung): ' + unknownKeys.join(', '));
+    }
 
     // Store raw JSON for dashboard display
     d._rawJson = raw;
@@ -613,7 +652,7 @@ class FreeAir100 extends utils.Adapter {
         return json(this.lastData);
       }
       if (p === '/api/logs')    return json(this.logs.slice(-150));
-      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.4.4' });
+      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.4.5' });
       if (p === '/api/config') {
         const cfg = { filterChangeIntervalH: this.config.filterChangeIntervalH || 8760 };
         this._dbg('HTTP /api/config: ' + JSON.stringify(cfg));
@@ -664,7 +703,7 @@ class FreeAir100 extends utils.Adapter {
   //  HTML BUILDER
   // ─────────────────────────────────────────────────────────────────────────
   buildHtml() {
-    const ver  = this.pack ? this.pack.version : '0.4.4';
+    const ver  = this.pack ? this.pack.version : '0.4.5';
     const sn   = (this.config && this.config.serialnumber) || '---';
     const port = (this.config && this.config.webPort) || 8096;
     const iv   = (this.config && this.config.pollInterval) || 300;

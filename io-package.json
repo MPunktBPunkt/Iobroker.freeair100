@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "freeair100",
-    "version": "0.4.4",
+    "version": "0.4.5",
     "news": {
+      "0.4.5": {
+        "en": "Fix: Code 9 block detection (1h), complete field mapping from language.php analysis",
+        "de": "Fix: Code 9 Sperrung erkennen (1h), vollstaendiges Key-Mapping aus language.php Analyse"
+      },
       "0.4.4": {
         "en": "Fix: login POST now sends existing session cookie to upgrade anonymous session to authenticated",
         "de": "Fix: Login-POST sendet bestehenden Session-Cookie mit, damit Server anonymous Session zu authenticated hochstuft"

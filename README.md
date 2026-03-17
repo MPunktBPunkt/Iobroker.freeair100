@@ -152,6 +152,12 @@ Aktueller Workaround: Comfort-Level und Betriebsart direkt über
 
 ## Changelog
 
+### 0.4.5 (2026-03-17)
+- **Fix:** Code 9 Erkennung: zu viele falsche Passwort-Versuche → Login fuer 1 Stunde sperren
+- **Fix:** Guard in `_login()` prueft ob Sperre noch aktiv, zeigt verbleibende Minuten
+- **Neu:** Vollstaendiges Key-Mapping aus language.php Analyse (alle Feldnamen bestaetigt)
+- Unbekannte Felder werden im Debug-Log gemeldet (fuer zukuenftige Erweiterungen)
+
 ### 0.4.4 (2026-03-17)
 - **Root-Fix:** Login-POST sendet bestehenden `PHPSESSID`-Cookie mit
 - Damit stuft der Server die anonymous Session zu authenticated hoch
