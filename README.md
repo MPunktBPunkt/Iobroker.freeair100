@@ -1,6 +1,6 @@
 # ioBroker freeAir 100 Adapter
 
-[![Version](https://img.shields.io/badge/version-0.5.0-blue)](https://github.com/MPunktBPunkt/Iobroker.freeair100)
+[![Version](https://img.shields.io/badge/version-0.5.2-blue)](https://github.com/MPunktBPunkt/Iobroker.freeair100)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D16-brightgreen)](https://nodejs.org)
 
@@ -23,6 +23,19 @@ sowie über ein modernes Web-Dashboard bereit.
 | 🛡️ **Code-9-Schutz** | Passwort-Sperre wird erkannt und über Neustarts hinaus eingehalten |
 | 🔌 **Verbindungstest** | Button in den Admin-Einstellungen |
 | 📊 **Web-Dashboard** | Port 8096, Strömungsdiagramm, Gauges, Filter-Ring |
+
+---
+
+## ⚠️ Aktueller Entwicklungsstand (v0.5.2)
+
+Die Verbindung und Authentifizierung zu freeair-connect.de funktioniert vollständig.
+`values.php` antwortet mit **267 kB AES-verschlüsselten Minutenwerten** (1621 Einträge).
+
+**Problem:** Die Sensordaten sind AES-CBC-verschlüsselt. Der Entschlüsselungsschlüssel
+liegt im minierten `freeair.js` — er muss noch aus dem JavaScript extrahiert werden.
+
+**So helfen:** DevTools → Sources → `freeair.js` → Suche nach `CryptoJS` oder `decrypt`
+→ Schlüssel als [GitHub Issue](https://github.com/MPunktBPunkt/Iobroker.freeair100/issues) melden.
 
 ---
 
@@ -176,6 +189,16 @@ schedule('0 7  * * *', () => setState('freeair100.0.control.operatingMode', 'cmf
 ---
 
 ## Changelog
+
+### 0.5.2 (2026-03-18)
+- **Entdeckung:** values.php liefert AES-verschlüsseltes Array (1621 Minutenwerte)
+- **Fix:** parseValues() erkennt Array-Format, gibt hilfreiche Fehlermeldung mit DevTools-Anleitung
+- AES-Schlüssel aus freeair.js wird noch benötigt
+
+### 0.5.1 (2026-03-17)
+- **Fix:** Falsches Passwort wird nach einmaligem 401 erkannt — kein zweiter Versuch (Code-9-Schutz)
+- **Fix:** `_justLoggedIn`-Flag verhindert Retry-Schleife die Code-9 ausloest
+- Klarere Fehlermeldung: "Passwort falsch! Bitte in Einstellungen pruefen."
 
 ### 0.5.0 (2026-03-17)
 - Erste stabile Version — alle Kernfunktionen implementiert und getestet

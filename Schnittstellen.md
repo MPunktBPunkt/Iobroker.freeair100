@@ -1,6 +1,6 @@
 # Schnittstellen.md — iobroker.freeair100
 
-> Letzte Aktualisierung: 2026-03-16 | Version: 0.5.0
+> Letzte Aktualisierung: 2026-03-16 | Version: 0.5.2
 
 ---
 

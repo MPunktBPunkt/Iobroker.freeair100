@@ -22,6 +22,7 @@ class FreeAir100 extends utils.Adapter {
     this.sessionCookie      = null;   // PHPSESSID from login
     this.loginPending       = false;
     this._loginBlockedUntil = null;  // timestamp when block expires (Code 9)
+    this._justLoggedIn     = false; // true if we just logged in (dont retry on 401)
     this._dbg('constructor START - Node.js ' + process.version + '  pid=' + process.pid);
     try {
       this.pack = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
@@ -285,7 +286,7 @@ class FreeAir100 extends utils.Adapter {
     }
     if (this.sessionCookie) {
       this._dbg('_login OK: Cookie=' + this.sessionCookie);
-      this._log('info', 'AUTH', 'Login erfolgreich, Session-Cookie erhalten');
+      this._log('info', 'AUTH', 'Session-Cookie empfangen (PHPSESSID). Passwort wird bei erstem values.php-Abruf verifiziert.');
       return true;
     }
     this._dbg('_login: kein Cookie erhalten (Status ' + res.status + ') - Passwort falsch?');
@@ -325,6 +326,7 @@ class FreeAir100 extends utils.Adapter {
   // Session (PHPSESSID) must be established first via main page GET.
   async fetchValues() {
     const sn = (this.config && this.config.serialnumber) || '';
+    this._justLoggedIn = false; // reset on each new fetch cycle
     this._dbg('fetchValues START  cookie=' + (this.sessionCookie || 'keiner'));
     this._log('info', 'POLL', 'Abrufen /api/values.php SN=' + sn);
 
@@ -357,7 +359,7 @@ class FreeAir100 extends utils.Adapter {
 
     this._dbg('fetchValues: ' + res.body.length + ' Bytes  status=' + res.status);
 
-    // 401: session expired - re-establish and retry ONLY if not blocked
+    // 401: session expired or wrong password
     if (res.status === 401 || res.status === 403 || res.body.length < 50) {
       if (this._loginBlockedUntil && Date.now() < this._loginBlockedUntil) {
         const remaining = Math.ceil((this._loginBlockedUntil - Date.now()) / 60000);
@@ -365,10 +367,24 @@ class FreeAir100 extends utils.Adapter {
         this._log('warn', 'AUTH', 'Daten nicht abrufbar: Passwort-Sperre aktiv, noch ' + remaining + ' Min');
         return '';
       }
-      this._dbg('fetchValues: Status ' + res.status + ' - Session + Login neu aufbauen');
+      // If we already just logged in and still get 401: password is WRONG.
+      // Do NOT retry - another attempt risks Code 9 block!
+      if (this._justLoggedIn) {
+        this._justLoggedIn = false;
+        this._log('error', 'AUTH',
+          'Passwort falsch! values.php liefert 401 obwohl Login einen Cookie zurueckgab. ' +
+          'Bitte Passwort in den Einstellungen pruefen. Kein Retry (Code-9-Schutz).');
+        this._dbg('fetchValues: Passwort-Fehler erkannt - kein Retry um Code-9 zu vermeiden');
+        return '';
+      }
+      // First 401 without prior login attempt: try once with fresh session + login
+      this._dbg('fetchValues: Status ' + res.status + ' - einmaliger Retry mit neuer Session');
       this.sessionCookie = null;
       await this._ensureSession();
-      if (this.config && this.config.password) await this._login();
+      if (this.config && this.config.password) {
+        this._justLoggedIn = true;
+        await this._login();
+      }
       if (this.sessionCookie) {
         headers['Cookie'] = this.sessionCookie;
         const res2 = await this._httpsRequest({
@@ -377,6 +393,7 @@ class FreeAir100 extends utils.Adapter {
           method:   'GET',
           headers,
         });
+        this._justLoggedIn = false;
         this._dbg('fetchValues Retry: ' + res2.body.length + ' Bytes  status=' + res2.status);
         return res2.body;
       }
@@ -440,19 +457,47 @@ class FreeAir100 extends utils.Adapter {
 
   // ── Parse HTML ────────────────────────────────────────────────────────────
   // ── Parse JSON from values.php ───────────────────────────────────────────
-  // values.php returns a large JSON object with all device data
-  // Key mapping discovered from nav4 HTML table (same abbreviations)
+  // values.php returns either:
+  // A) An ARRAY of encrypted minute log entries (AES-CBC, key unknown - needs freeair.js analysis)
+  //    [{log:"base64_aes", timestamp:"...", type:1, versionCC3200:"...", versionMain:"..."}, ...]
+  // B) An OBJECT with direct field values (seen in browser DevTools when 76kB)
   parseValues(jsonStr) {
     const d = {};
     let raw;
     try {
       raw = JSON.parse(jsonStr);
-      this._dbg('parseValues: JSON OK, keys=' + Object.keys(raw).length);
+      this._dbg('parseValues: JSON OK, type=' + (Array.isArray(raw) ? 'ARRAY[' + raw.length + ']' : 'OBJECT keys=' + Object.keys(raw).length));
     } catch(e) {
       this._dbg('parseValues: JSON.parse FEHLER: ' + e.message);
       this._dbg('parseValues: Antwort-Anfang: ' + jsonStr.substring(0, 300));
-      // Fallback: try HTML parsing
       return this.parseData(jsonStr);
+    }
+
+    // Handle ARRAY response: encrypted minute log entries
+    if (Array.isArray(raw)) {
+      this._dbg('parseValues: ARRAY-Format erkannt (' + raw.length + ' Eintraege) - Daten sind AES-verschluesselt');
+      this._log('warn', 'POLL',
+        'values.php liefert ' + raw.length + ' verschluesselte Log-Eintraege. ' +
+        'AES-Schluessel aus freeair.js benoetigt. ' +
+        'Bitte DevTools -> Sources -> freeair.js -> nach "decrypt" oder "AES" suchen ' +
+        'und den Schluessel als GitHub Issue melden.');
+      // Extract unencrypted fields from most recent entry (type=1 or first)
+      const recent = raw.find(e => e.type === 1) || raw[0];
+      if (recent) {
+        if (recent.timestamp) d._timestamp = recent.timestamp;
+        if (recent.versionCC3200) d._versionCC3200 = recent.versionCC3200;
+        if (recent.versionMain) d._versionMain = recent.versionMain;
+        if (recent.log) d._encryptedLog = recent.log.substring(0, 32) + '...'; // truncated for display
+        this._dbg('parseValues: Neuester Eintrag: ' + JSON.stringify({
+          timestamp: recent.timestamp, type: recent.type,
+          versionCC3200: recent.versionCC3200, versionMain: recent.versionMain,
+          logLen: recent.log ? recent.log.length : 0
+        }));
+        this._dbg('parseValues: RAW log (base64 AES): ' + (recent.log || ''));
+      }
+      d._rawJson = raw;
+      d._responseFormat = 'encrypted_array';
+      return d; // No sensor values yet - AES key needed
     }
 
     // ── Complete field mapping from language.php analysis ──────────────────
@@ -728,7 +773,7 @@ class FreeAir100 extends utils.Adapter {
         return json(this.lastData);
       }
       if (p === '/api/logs')    return json(this.logs.slice(-150));
-      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.5.0' });
+      if (p === '/api/version') return json({ version: this.pack ? this.pack.version : '0.5.2' });
       if (p === '/api/config') {
         const cfg = { filterChangeIntervalH: this.config.filterChangeIntervalH || 8760 };
         this._dbg('HTTP /api/config: ' + JSON.stringify(cfg));
@@ -779,7 +824,7 @@ class FreeAir100 extends utils.Adapter {
   //  HTML BUILDER
   // ─────────────────────────────────────────────────────────────────────────
   buildHtml() {
-    const ver  = this.pack ? this.pack.version : '0.5.0';
+    const ver  = this.pack ? this.pack.version : '0.5.2';
     const sn   = (this.config && this.config.serialnumber) || '---';
     const port = (this.config && this.config.webPort) || 8096;
     const iv   = (this.config && this.config.pollInterval) || 300;

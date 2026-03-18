@@ -1,8 +1,16 @@
 {
   "common": {
     "name": "freeair100",
-    "version": "0.5.0",
+    "version": "0.5.2",
     "news": {
+      "0.5.2": {
+        "en": "Discovery: values.php returns AES-encrypted array (not plain object). Array handling added, AES key from freeair.js needed.",
+        "de": "Entdeckung: values.php liefert AES-verschluesseltes Array (kein einfaches Objekt). Array-Behandlung ergaenzt, AES-Schluessel aus freeair.js benoetigt."
+      },
+      "0.5.1": {
+        "en": "Fix: wrong password detected after single 401 - no retry to prevent Code 9. Clear error message.",
+        "de": "Fix: Falsches Passwort nach 401 erkannt - kein Retry um Code-9 zu vermeiden. Klare Fehlermeldung."
+      },
       "0.5.0": {
         "en": "First stable release: full auth flow, JSON API, device control, Code-9 protection, connection test, updated README",
         "de": "Erste stabile Version: vollstaendiger Auth-Flow, JSON-API, Geraetesteuerung, Code-9-Schutz, Verbindungstest, aktualisiertes README"
